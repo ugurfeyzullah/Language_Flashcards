@@ -333,8 +333,7 @@ class AuthManager {    constructor() {
         const loginScreen = document.createElement('div');
         loginScreen.id = 'loginScreen';
         loginScreen.className = 'login-screen';
-        
-        loginScreen.innerHTML = `
+          loginScreen.innerHTML = `
             <div class="login-container">
                 <div class="login-header">
                     <h1>🃏 Language Flash Cards</h1>
@@ -347,10 +346,21 @@ class AuthManager {    constructor() {
                         <h2>Sign In</h2>
                         <form id="loginFormElement">
                             <div class="form-group">
-                                <input type="text" id="loginUsername" placeholder="Username or Email" required>
+                                <input type="text" 
+                                       id="loginUsername" 
+                                       placeholder="Username or Email" 
+                                       autocomplete="username"
+                                       autocapitalize="none"
+                                       autocorrect="off"
+                                       spellcheck="false"
+                                       required>
                             </div>
                             <div class="form-group">
-                                <input type="password" id="loginPassword" placeholder="Password" required>
+                                <input type="password" 
+                                       id="loginPassword" 
+                                       placeholder="Password" 
+                                       autocomplete="current-password"
+                                       required>
                             </div>
                             <button type="submit" class="auth-btn primary">Sign In</button>
                         </form>
@@ -364,16 +374,38 @@ class AuthManager {    constructor() {
                         <h2>Create Account</h2>
                         <form id="registerFormElement">
                             <div class="form-group">
-                                <input type="text" id="registerUsername" placeholder="Username" required>
+                                <input type="text" 
+                                       id="registerUsername" 
+                                       placeholder="Username" 
+                                       autocomplete="username"
+                                       autocapitalize="none"
+                                       autocorrect="off"
+                                       spellcheck="false"
+                                       required>
                             </div>
                             <div class="form-group">
-                                <input type="email" id="registerEmail" placeholder="Email" required>
+                                <input type="email" 
+                                       id="registerEmail" 
+                                       placeholder="Email" 
+                                       autocomplete="email"
+                                       autocapitalize="none"
+                                       autocorrect="off"
+                                       spellcheck="false"
+                                       required>
                             </div>
                             <div class="form-group">
-                                <input type="password" id="registerPassword" placeholder="Password" required>
+                                <input type="password" 
+                                       id="registerPassword" 
+                                       placeholder="Password" 
+                                       autocomplete="new-password"
+                                       required>
                             </div>
                             <div class="form-group">
-                                <input type="password" id="registerConfirmPassword" placeholder="Confirm Password" required>
+                                <input type="password" 
+                                       id="registerConfirmPassword" 
+                                       placeholder="Confirm Password" 
+                                       autocomplete="new-password"
+                                       required>
                             </div>
                             <button type="submit" class="auth-btn primary">Create Account</button>
                         </form>

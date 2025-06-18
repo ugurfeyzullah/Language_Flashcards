@@ -28,11 +28,17 @@ app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=30)
 
-# Production optimizations
+# Session configuration for better persistence
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+
+# Only set secure cookies if using HTTPS
 if FLASK_ENV == 'production':
+    # PythonAnywhere provides HTTPS, so we can use secure cookies
     app.config['SESSION_COOKIE_SECURE'] = True
-    app.config['SESSION_COOKIE_HTTPONLY'] = True
-    app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+else:
+    # For local development (HTTP), don't require secure cookies
+    app.config['SESSION_COOKIE_SECURE'] = False
 
 # Initialize extensions
 db = SQLAlchemy(app)
