@@ -26,12 +26,17 @@
 
 class FlashCardApp {
     constructor() {
-        // The app's logic will be kicked off by the 'authReady' event.
-        // This ensures we don't run before the user's session is checked.
-        document.addEventListener('authReady', this.initializeApp.bind(this));
+        // Wait for auth manager to be ready
+        this.waitForAuth();
     }
 
-    initializeApp() {
+    waitForAuth() {
+        if (typeof authManager !== 'undefined') {
+            this.initializeApp();
+        } else {
+            setTimeout(() => this.waitForAuth(), 100);
+        }
+    }    initializeApp() {
         this.authManager = authManager;
         this.loginPromptTimeout = null;
         

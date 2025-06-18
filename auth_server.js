@@ -11,7 +11,7 @@ class AuthManager {    constructor() {
     }async initializeAuth() {
         try {
             // Check if user is already logged in on server
-            const response = await fetch(`${this.apiBase}/session/status`, {
+            const response = await fetch(`${this.apiBase}/user`, {
                 credentials: 'include',
                 headers: {
                     'Content-Type': 'application/json'
@@ -20,28 +20,18 @@ class AuthManager {    constructor() {
 
             if (response.ok) {
                 const data = await response.json();
-                if (data.is_logged_in) {
-                    this.currentUser = data.user;
-                    console.log('✅ User session restored:', this.currentUser.username);
-                } else {
-                    this.currentUser = null;
-                    console.log('📱 No active session found on server.');
-                }
-            } else {
-                // Handle non-ok responses (e.g., 500 server error)
-                this.currentUser = null;
-                console.warn(`⚠️ Session status check failed with status: ${response.status}`);
+                this.currentUser = data.user;
+                this.showApp();
+                console.log('✅ User authenticated:', this.currentUser.username);
+                return;
             }
         } catch (error) {
-            this.currentUser = null;
-            console.error('Error checking session status:', error);
+            console.log('No existing session found');
         }
         
-        // Always show the app and signal ready, regardless of login state
-        this.showApp();
-        if (!this.currentUser) {
-            console.log('📱 Starting app in anonymous mode');
-        }
+        // Show app directly without login requirement
+        this.currentUser = null;
+        this.showApp();        console.log('📱 Starting app in anonymous mode');
     }
 
     setupUIEventListeners() {
@@ -343,7 +333,8 @@ class AuthManager {    constructor() {
         const loginScreen = document.createElement('div');
         loginScreen.id = 'loginScreen';
         loginScreen.className = 'login-screen';
-          loginScreen.innerHTML = `
+        
+        loginScreen.innerHTML = `
             <div class="login-container">
                 <div class="login-header">
                     <h1>🃏 Language Flash Cards</h1>
@@ -356,21 +347,10 @@ class AuthManager {    constructor() {
                         <h2>Sign In</h2>
                         <form id="loginFormElement">
                             <div class="form-group">
-                                <input type="text" 
-                                       id="loginUsername" 
-                                       placeholder="Username or Email" 
-                                       autocomplete="username"
-                                       autocapitalize="none"
-                                       autocorrect="off"
-                                       spellcheck="false"
-                                       required>
+                                <input type="text" id="loginUsername" placeholder="Username or Email" required>
                             </div>
                             <div class="form-group">
-                                <input type="password" 
-                                       id="loginPassword" 
-                                       placeholder="Password" 
-                                       autocomplete="current-password"
-                                       required>
+                                <input type="password" id="loginPassword" placeholder="Password" required>
                             </div>
                             <button type="submit" class="auth-btn primary">Sign In</button>
                         </form>
@@ -384,38 +364,16 @@ class AuthManager {    constructor() {
                         <h2>Create Account</h2>
                         <form id="registerFormElement">
                             <div class="form-group">
-                                <input type="text" 
-                                       id="registerUsername" 
-                                       placeholder="Username" 
-                                       autocomplete="username"
-                                       autocapitalize="none"
-                                       autocorrect="off"
-                                       spellcheck="false"
-                                       required>
+                                <input type="text" id="registerUsername" placeholder="Username" required>
                             </div>
                             <div class="form-group">
-                                <input type="email" 
-                                       id="registerEmail" 
-                                       placeholder="Email" 
-                                       autocomplete="email"
-                                       autocapitalize="none"
-                                       autocorrect="off"
-                                       spellcheck="false"
-                                       required>
+                                <input type="email" id="registerEmail" placeholder="Email" required>
                             </div>
                             <div class="form-group">
-                                <input type="password" 
-                                       id="registerPassword" 
-                                       placeholder="Password" 
-                                       autocomplete="new-password"
-                                       required>
+                                <input type="password" id="registerPassword" placeholder="Password" required>
                             </div>
                             <div class="form-group">
-                                <input type="password" 
-                                       id="registerConfirmPassword" 
-                                       placeholder="Confirm Password" 
-                                       autocomplete="new-password"
-                                       required>
+                                <input type="password" id="registerConfirmPassword" placeholder="Confirm Password" required>
                             </div>
                             <button type="submit" class="auth-btn primary">Create Account</button>
                         </form>

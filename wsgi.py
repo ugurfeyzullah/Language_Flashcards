@@ -16,7 +16,7 @@ if project_home not in sys.path:
 
 # 🔐 CHANGE THIS: Set a strong, unique secret key for production
 os.environ['FLASK_ENV'] = 'production'
-os.environ['SECRET_KEY'] = 'your-super-secret-production-key-change-this-to-something-random-and-long'
+os.environ['SECRET_KEY'] = 'ugur-flashcards-secret-key-2025-change-this-to-something-even-more-random-and-long-12345'
 
 # Import your Flask app
 from server import app as application
