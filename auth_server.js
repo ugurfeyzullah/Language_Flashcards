@@ -11,7 +11,7 @@ class AuthManager {    constructor() {
     }async initializeAuth() {
         try {
             // Check if user is already logged in on server
-            const response = await fetch(`${this.apiBase}/user`, {
+            const response = await fetch(`${this.apiBase}/session/status`, {
                 credentials: 'include',
                 headers: {
                     'Content-Type': 'application/json'
@@ -20,18 +20,28 @@ class AuthManager {    constructor() {
 
             if (response.ok) {
                 const data = await response.json();
-                this.currentUser = data.user;
-                this.showApp();
-                console.log('✅ User authenticated:', this.currentUser.username);
-                return;
+                if (data.is_logged_in) {
+                    this.currentUser = data.user;
+                    console.log('✅ User session restored:', this.currentUser.username);
+                } else {
+                    this.currentUser = null;
+                    console.log('📱 No active session found on server.');
+                }
+            } else {
+                // Handle non-ok responses (e.g., 500 server error)
+                this.currentUser = null;
+                console.warn(`⚠️ Session status check failed with status: ${response.status}`);
             }
         } catch (error) {
-            console.log('No existing session found');
+            this.currentUser = null;
+            console.error('Error checking session status:', error);
         }
         
-        // Show app directly without login requirement
-        this.currentUser = null;
-        this.showApp();        console.log('📱 Starting app in anonymous mode');
+        // Always show the app and signal ready, regardless of login state
+        this.showApp();
+        if (!this.currentUser) {
+            console.log('📱 Starting app in anonymous mode');
+        }
     }
 
     setupUIEventListeners() {

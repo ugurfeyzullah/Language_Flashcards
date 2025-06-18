@@ -14,9 +14,11 @@ import sys
 import json
 import webbrowser
 from pathlib import Path
+import logging
 
 # Configuration
 app = Flask(__name__)
+logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 
 # Get configuration from environment variables for production
 SECRET_KEY = os.environ.get('SECRET_KEY', 'your-secret-key-change-this-in-production')
@@ -46,6 +48,13 @@ CORS(app, supports_credentials=True)
 
 # Get the directory where the script is located
 BASE_DIR = Path(__file__).parent
+
+@app.before_request
+def log_request_info():
+    """Log session and cookie info for debugging."""
+    app.logger.info(f'Path: {request.path}')
+    app.logger.info(f'Session: {session}')
+    app.logger.info(f'Cookies: {request.cookies}')
 
 # Database Models
 class User(db.Model):
@@ -181,8 +190,11 @@ def register():
         db.session.commit()
         
         # Log the user in
+        session.clear()
         session['user_id'] = user.id
         session.permanent = True
+        session.modified = True # Ensure cookie is set
+        app.logger.info(f"User {user.username} registered and session created: {session}")
         
         return jsonify({
             'success': True,
@@ -219,8 +231,11 @@ def login():
         db.session.commit()
         
         # Create session
+        session.clear()
         session['user_id'] = user.id
         session.permanent = True
+        session.modified = True # Ensure cookie is set
+        app.logger.info(f"User {user.username} logged in and session created: {session}")
         
         return jsonify({
             'success': True,
@@ -243,6 +258,21 @@ def get_user():
     """Get current user info."""
     user = get_current_user()
     return jsonify({'user': user.to_dict()})
+
+@app.route('/api/session/status', methods=['GET'])
+def session_status():
+    """Check the current session status."""
+    app.logger.info(f"Checking session status. Session content: {session}")
+    user = get_current_user()
+    if user:
+        app.logger.info(f"Session valid for user: {user.username}")
+        return jsonify({
+            'is_logged_in': True,
+            'user': user.to_dict()
+        })
+    else:
+        app.logger.info("No valid user session found.")
+        return jsonify({'is_logged_in': False})
 
 @app.route('/api/progress', methods=['GET'])
 @require_auth()
