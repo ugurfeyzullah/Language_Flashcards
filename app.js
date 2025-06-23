@@ -39,15 +39,17 @@ class FlashCardApp {
     }    initializeApp() {
         this.authManager = authManager;
         this.loginPromptTimeout = null;
-        
-        this.state = {
+          this.state = {
             cards: [],
             index: 0,
             knownIds: [],
             learningIds: [],
             history: [],
             isFlipped: false,
-            theme: localStorage.getItem('flashcard-theme') || 'dark'
+            theme: localStorage.getItem('flashcard-theme') || 'dark',
+            reviewQueue: [], // Queue of cards to review mixed in randomly
+            cardsSinceLastReview: 0, // Counter for when to inject review cards
+            nextReviewInterval: this.getRandomReviewInterval() // Random interval between 5-50
         };
 
         // Initialize last saved progress state
@@ -434,6 +436,7 @@ class FlashCardApp {
         if (!currentCard) return;
 
         const newState = { ...this.state };
+        const isReviewCard = currentCard._isReviewCard;
         
         // If this card was previously marked as "still learning", remove it from that list first
         if (newState.learningIds.includes(currentCard.id)) {
@@ -455,8 +458,18 @@ class FlashCardApp {
         // Add to history
         newState.history = [...newState.history, { action: direction, card: currentCard }];
 
-        // Move to next card
-        newState.index = newState.index + 1;
+        // Handle progression logic
+        if (isReviewCard) {
+            // This was a review card, don't advance the main index
+            // Reset the review counter and get a new interval
+            newState.cardsSinceLastReview = 0;
+            newState.nextReviewInterval = this.getRandomReviewInterval();
+        } else {
+            // This was a regular card, advance the index
+            newState.index = newState.index + 1;
+            newState.cardsSinceLastReview = newState.cardsSinceLastReview + 1;
+        }
+        
         newState.isFlipped = false;
 
         this.state = newState;
@@ -486,6 +499,7 @@ class FlashCardApp {
 
         const newState = { ...this.state };
         const lastAction = newState.history.pop();
+        const wasReviewCard = lastAction.card._isReviewCard;
         
         // Remove from appropriate array
         if (lastAction.action === 'right') {
@@ -494,8 +508,16 @@ class FlashCardApp {
             newState.learningIds = newState.learningIds.filter(id => id !== lastAction.card.id);
         }
 
-        // Go back one card
-        newState.index = Math.max(0, newState.index - 1);
+        // Handle going back based on card type
+        if (wasReviewCard) {
+            // This was a review card, increment the counter back
+            newState.cardsSinceLastReview = Math.max(0, newState.cardsSinceLastReview + 1);
+        } else {
+            // This was a regular card, go back one position
+            newState.index = Math.max(0, newState.index - 1);
+            newState.cardsSinceLastReview = Math.max(0, newState.cardsSinceLastReview - 1);
+        }
+        
         newState.isFlipped = false;
 
         this.state = newState;
@@ -592,23 +614,36 @@ class FlashCardApp {
         document.body.setAttribute('data-theme', this.state.theme);
         this.elements.themeToggle.textContent = this.state.theme === 'dark' ? '☀️' : '🌙';
     }    getCurrentCard() {
-        // Check if we need to show review cards (still learning cards)
-        const availableCards = this.getAvailableCards();
-        if (availableCards.length === 0) {
-            return null; // No more cards to show
+        // First check if we should inject a review card
+        if (this.shouldInjectReviewCard()) {
+            const reviewCard = this.getRandomReviewCard();
+            if (reviewCard) {
+                // Mark this as a review card injection
+                reviewCard._isReviewCard = true;
+                return reviewCard;
+            }
         }
         
-        // If we've gone through all new cards, start reviewing "still learning" cards
+        // If we're at the end of the deck, check if there are still learning cards
         if (this.state.index >= this.state.cards.length) {
             const reviewCards = this.getCardsForReview();
             if (reviewCards.length > 0) {
-                const reviewIndex = (this.state.index - this.state.cards.length) % reviewCards.length;
-                return reviewCards[reviewIndex];
+                // Show a random review card
+                const randomCard = this.getRandomReviewCard();
+                if (randomCard) {
+                    randomCard._isReviewCard = true;
+                    return randomCard;
+                }
             }
-            return null;
+            return null; // No more cards to show
         }
         
-        return this.state.cards[this.state.index] || null;
+        // Return the next card in the normal sequence
+        const nextCard = this.state.cards[this.state.index];
+        if (nextCard) {
+            nextCard._isReviewCard = false;
+        }
+        return nextCard;
     }
 
     getAvailableCards() {
@@ -623,13 +658,31 @@ class FlashCardApp {
         const reviewCards = this.getCardsForReview();
         
         return [...unseenCards, ...reviewCards];
-    }
-
-    getCardsForReview() {
+    }    getCardsForReview() {
         // Return cards that are marked as "still learning" for review
         return this.state.cards.filter(card => 
             this.state.learningIds.includes(card.id)
         );
+    }
+
+    getRandomReviewInterval() {
+        // Return a random number between 5 and 50
+        return Math.floor(Math.random() * (50 - 5 + 1)) + 5;
+    }
+
+    shouldInjectReviewCard() {
+        // Check if we should inject a review card
+        return this.state.cardsSinceLastReview >= this.state.nextReviewInterval && 
+               this.state.learningIds.length > 0;
+    }
+
+    getRandomReviewCard() {
+        // Get a random card from the "still learning" list
+        const reviewableCards = this.getCardsForReview();
+        if (reviewableCards.length === 0) return null;
+        
+        const randomIndex = Math.floor(Math.random() * reviewableCards.length);
+        return reviewableCards[randomIndex];
     }
 
     render() {
@@ -638,19 +691,18 @@ class FlashCardApp {
         this.renderCard();
         this.renderControls();
     }    renderProgress() {
-        const availableCards = this.getAvailableCards();
         const totalCards = this.state.cards.length;
+        const currentCard = this.getCurrentCard();
         
-        if (availableCards.length === 0) {
+        if (!currentCard) {
             // All cards completed
             this.elements.progressLabel.textContent = `${totalCards} / ${totalCards}`;
-        } else if (this.state.index >= totalCards) {
-            // In review mode
-            const reviewCards = this.getCardsForReview();
-            const reviewIndex = (this.state.index - totalCards) % reviewCards.length;
-            this.elements.progressLabel.textContent = `Review ${reviewIndex + 1} / ${reviewCards.length}`;
+        } else if (currentCard._isReviewCard) {
+            // Showing a review card
+            const current = Math.min(this.state.index + 1, totalCards);
+            this.elements.progressLabel.textContent = `${current} / ${totalCards} (Review)`;
         } else {
-            // In initial learning mode
+            // In normal learning mode
             const current = Math.min(this.state.index + 1, totalCards);
             this.elements.progressLabel.textContent = `${current} / ${totalCards}`;
         }
@@ -665,6 +717,14 @@ class FlashCardApp {
         if (!currentCard) {
             this.renderEmptyState();
             return;
+        }
+
+        // Add review indicator if this is a review card
+        const cardContainer = document.getElementById('cardContainer');
+        if (currentCard._isReviewCard) {
+            cardContainer.classList.add('review-card');
+        } else {
+            cardContainer.classList.remove('review-card');
         }
 
         // Front side
@@ -783,13 +843,14 @@ class FlashCardApp {
             
             // Get favorite cards
             const favourites = this.state.cards.filter(card => card.isFavourite).map(card => card.id);
-            
-            const progressData = {
+              const progressData = {
                 knownIds: [...this.state.knownIds],
                 learningIds: [...this.state.learningIds],
                 favourites: favourites,
                 theme: this.state.theme,
                 lastCardIndex: this.state.index,
+                cardsSinceLastReview: this.state.cardsSinceLastReview,
+                nextReviewInterval: this.state.nextReviewInterval,
                 totalSessionTime: sessionTime
             };
 
@@ -814,12 +875,13 @@ class FlashCardApp {
 
         try {
             const progress = this.authManager.getUserProgress();
-            if (progress) {
-                this.state = {
+            if (progress) {                this.state = {
                     ...this.state,
                     knownIds: progress.knownIds || [],
                     learningIds: progress.learningIds || [],
-                    theme: progress.theme || 'dark'
+                    theme: progress.theme || 'dark',
+                    cardsSinceLastReview: progress.cardsSinceLastReview || 0,
+                    nextReviewInterval: progress.nextReviewInterval || this.getRandomReviewInterval()
                 };
 
                 // Restore favorites
@@ -963,11 +1025,12 @@ class FlashCardApp {
         if (confirmation) {
             // Save current progress first
             this.saveUserProgress();
-            
-            // Reset session state
+              // Reset session state
             this.state.index = 0;
             this.state.history = [];
             this.state.isFlipped = false;
+            this.state.cardsSinceLastReview = 0;
+            this.state.nextReviewInterval = this.getRandomReviewInterval();
             this.sessionStartTime = Date.now();
             
             // Re-render everything

@@ -131,6 +131,7 @@ body {
     align-items: center;
     perspective: 1000px;
     margin-bottom: 24px;
+    position: relative;
 }
 
 .flashcard {
@@ -947,4 +948,26 @@ body {
 
 .reset-btn:hover {
     background: #dd7324;
+}
+
+/* Review card indicator */
+.card-container.review-card::before {
+    content: "📚 Review";
+    position: absolute;
+    top: -30px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--accent-learning);
+    color: white;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 600;
+    z-index: 10;
+    animation: reviewPulse 2s ease-in-out infinite;
+}
+
+@keyframes reviewPulse {
+    0%, 100% { opacity: 0.8; transform: translateX(-50%) scale(1); }
+    50% { opacity: 1; transform: translateX(-50%) scale(1.05); }
 }
