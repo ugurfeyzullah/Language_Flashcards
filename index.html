@@ -8,8 +8,7 @@
 </head>
 <body>
     <!-- User Info Display -->
-    <div class="user-info" id="userInfo" style="display: none;"></div>
-      <!-- Logout Button -->
+    <div class="user-info" id="userInfo" style="display: none;"></div>    <!-- Logout Button -->
     <button class="logout-btn" id="logoutBtn" style="display: none;">Sign Out</button>
     
     <!-- Login Prompt for Anonymous Users -->
@@ -19,6 +18,9 @@
             <button class="prompt-login-btn" id="promptLoginBtn">Log In</button>
         </div>
     </div>
+
+    <!-- Fallback Login Button (always visible for anonymous users) -->
+    <button class="fallback-login-btn" id="fallbackLoginBtn" style="display: none;">👤</button>
     
     <div id="app">
         <!-- Top Bar -->

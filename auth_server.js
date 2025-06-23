@@ -32,16 +32,25 @@ class AuthManager {    constructor() {
         // Show app directly without login requirement
         this.currentUser = null;
         this.showApp();        console.log('📱 Starting app in anonymous mode');
-    }
-
-    setupUIEventListeners() {
+    }    setupUIEventListeners() {
         // Login prompt button click
         document.addEventListener('click', (e) => {
-            if (e.target.id === 'promptLoginBtn') {
+            if (e.target.id === 'promptLoginBtn' || e.target.id === 'fallbackLoginBtn') {
+                console.log('🔑 Login button clicked:', e.target.id);
                 this.showLoginScreen();
             }
             if (e.target.id === 'logoutBtn') {
+                console.log('🚪 Logout button clicked');
                 this.logout();
+            }
+        });
+
+        // Add keyboard shortcut for login (Ctrl+L)
+        document.addEventListener('keydown', (e) => {
+            if (e.ctrlKey && e.key === 'l' && !this.currentUser) {
+                e.preventDefault();
+                console.log('🔑 Login shortcut pressed');
+                this.showLoginScreen();
             }
         });
     }
@@ -265,22 +274,22 @@ class AuthManager {    constructor() {
 
     isLoggedIn() {
         return this.currentUser !== null;
-    }
-
-    showLoginScreen() {
+    }    showLoginScreen() {
         // Hide the main app
         const app = document.getElementById('app');
         if (app) app.style.display = 'none';
 
-        // Hide user info and logout button
+        // Hide user info, logout button, and fallback login button
         const userInfo = document.getElementById('userInfo');
         const logoutBtn = document.getElementById('logoutBtn');
+        const fallbackLoginBtn = document.getElementById('fallbackLoginBtn');
         if (userInfo) userInfo.style.display = 'none';
         if (logoutBtn) logoutBtn.style.display = 'none';
+        if (fallbackLoginBtn) fallbackLoginBtn.style.display = 'none';
 
         // Create or show login screen
         this.createLoginScreen();
-    }    showApp() {
+    }showApp() {
         // Show the main app
         const app = document.getElementById('app');
         if (app) app.style.display = 'flex';
@@ -289,17 +298,35 @@ class AuthManager {    constructor() {
         const userInfo = document.getElementById('userInfo');
         const logoutBtn = document.getElementById('logoutBtn');
         const loginPrompt = document.getElementById('loginPrompt');
+        const fallbackLoginBtn = document.getElementById('fallbackLoginBtn');
         
         if (this.currentUser) {
             // User is logged in
-            if (userInfo) userInfo.style.display = 'block';
+            if (userInfo) {
+                userInfo.style.display = 'block';
+                userInfo.innerHTML = `
+                    <div class="user-welcome">Welcome, ${this.currentUser.username}!</div>
+                    <div class="user-stats">
+                        <span>📊 Progress saved</span>
+                    </div>
+                `;
+            }
             if (logoutBtn) logoutBtn.style.display = 'block';
             if (loginPrompt) loginPrompt.style.display = 'none';
+            if (fallbackLoginBtn) fallbackLoginBtn.style.display = 'none';
         } else {
-            // Anonymous user
+            // Anonymous user - show login options
             if (userInfo) userInfo.style.display = 'none';
             if (logoutBtn) logoutBtn.style.display = 'none';
-            if (loginPrompt) loginPrompt.style.display = 'block';
+            if (loginPrompt) {
+                loginPrompt.style.display = 'block';
+                console.log('👤 Anonymous mode - login prompt shown');
+            }
+            if (fallbackLoginBtn) {
+                fallbackLoginBtn.style.display = 'flex';
+                fallbackLoginBtn.title = 'Click to log in and save your progress';
+                console.log('👤 Anonymous mode - fallback login button shown');
+            }
         }
 
         // Hide login screen
