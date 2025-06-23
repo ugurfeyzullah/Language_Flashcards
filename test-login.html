@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Login Button</title>
+    <style>
+        .fallback-login-btn {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: #38b2ac;
+            color: white;
+            border: none;
+            font-size: 18px;
+            cursor: pointer;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+            z-index: 15;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .fallback-login-btn:hover {
+            background: #ed8936;
+            transform: scale(1.1);
+        }
+        
+        body { padding: 50px; font-family: Arial, sans-serif; }
+    </style>
+</head>
+<body>
+    <h1>Test Page</h1>
+    <p>This is a test to verify the fallback login button works.</p>
+    
+    <button class="fallback-login-btn" id="fallbackLoginBtn" onclick="alert('Login button clicked!')">👤</button>
+    
+    <script>
+        console.log('Fallback button loaded');
+        document.getElementById('fallbackLoginBtn').addEventListener('click', function() {
+            console.log('Button clicked!');
+        });
+    </script>
+</body>
+</html>
