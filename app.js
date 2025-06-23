@@ -434,8 +434,18 @@ class FlashCardApp {
         if (!currentCard) return;
 
         const newState = { ...this.state };
+        
+        // If this card was previously marked as "still learning", remove it from that list first
+        if (newState.learningIds.includes(currentCard.id)) {
+            newState.learningIds = newState.learningIds.filter(id => id !== currentCard.id);
+        }
+        
+        // If this card was previously marked as "known", remove it from that list first  
+        if (newState.knownIds.includes(currentCard.id)) {
+            newState.knownIds = newState.knownIds.filter(id => id !== currentCard.id);
+        }
 
-        // Add to appropriate array
+        // Add to appropriate array based on current swipe
         if (direction === 'right') {
             newState.knownIds = [...newState.knownIds, currentCard.id];
         } else {
@@ -581,10 +591,45 @@ class FlashCardApp {
     applyTheme() {
         document.body.setAttribute('data-theme', this.state.theme);
         this.elements.themeToggle.textContent = this.state.theme === 'dark' ? '☀️' : '🌙';
+    }    getCurrentCard() {
+        // Check if we need to show review cards (still learning cards)
+        const availableCards = this.getAvailableCards();
+        if (availableCards.length === 0) {
+            return null; // No more cards to show
+        }
+        
+        // If we've gone through all new cards, start reviewing "still learning" cards
+        if (this.state.index >= this.state.cards.length) {
+            const reviewCards = this.getCardsForReview();
+            if (reviewCards.length > 0) {
+                const reviewIndex = (this.state.index - this.state.cards.length) % reviewCards.length;
+                return reviewCards[reviewIndex];
+            }
+            return null;
+        }
+        
+        return this.state.cards[this.state.index] || null;
     }
 
-    getCurrentCard() {
-        return this.state.cards[this.state.index] || null;
+    getAvailableCards() {
+        // Cards that haven't been seen yet
+        const unseenCards = this.state.cards.filter((card, index) => 
+            index >= this.state.index && 
+            !this.state.knownIds.includes(card.id) && 
+            !this.state.learningIds.includes(card.id)
+        );
+        
+        // Cards marked as "still learning" that should be reviewed
+        const reviewCards = this.getCardsForReview();
+        
+        return [...unseenCards, ...reviewCards];
+    }
+
+    getCardsForReview() {
+        // Return cards that are marked as "still learning" for review
+        return this.state.cards.filter(card => 
+            this.state.learningIds.includes(card.id)
+        );
     }
 
     render() {
@@ -592,12 +637,23 @@ class FlashCardApp {
         this.renderCounters();
         this.renderCard();
         this.renderControls();
-    }
-
-    renderProgress() {
-        const total = this.state.cards.length;
-        const current = Math.min(this.state.index + 1, total);
-        this.elements.progressLabel.textContent = `${current} / ${total}`;
+    }    renderProgress() {
+        const availableCards = this.getAvailableCards();
+        const totalCards = this.state.cards.length;
+        
+        if (availableCards.length === 0) {
+            // All cards completed
+            this.elements.progressLabel.textContent = `${totalCards} / ${totalCards}`;
+        } else if (this.state.index >= totalCards) {
+            // In review mode
+            const reviewCards = this.getCardsForReview();
+            const reviewIndex = (this.state.index - totalCards) % reviewCards.length;
+            this.elements.progressLabel.textContent = `Review ${reviewIndex + 1} / ${reviewCards.length}`;
+        } else {
+            // In initial learning mode
+            const current = Math.min(this.state.index + 1, totalCards);
+            this.elements.progressLabel.textContent = `${current} / ${totalCards}`;
+        }
     }
 
     renderCounters() {
@@ -685,11 +741,22 @@ class FlashCardApp {
     renderControls() {
         this.elements.undoBtn.disabled = this.state.history.length === 0;
     }    renderEmptyState() {
-        this.elements.primaryText.textContent = 'All Done! 🎉';
-        this.elements.secondaryText.textContent = 'You\'ve completed all cards';
-        this.elements.translation.textContent = 'Great job!';
-        this.elements.example.textContent = '';
-        this.elements.notes.textContent = '';
+        const stillLearningCount = this.state.learningIds.length;
+        
+        if (stillLearningCount > 0) {
+            this.elements.primaryText.textContent = 'Review Complete! 📚';
+            this.elements.secondaryText.textContent = `You still have ${stillLearningCount} card${stillLearningCount > 1 ? 's' : ''} to master`;
+            this.elements.translation.textContent = 'Keep practicing to improve your retention!';
+            this.elements.example.textContent = 'Swipe left on cards you need more practice with';
+            this.elements.notes.textContent = 'Swipe right when you know them well';
+        } else {
+            this.elements.primaryText.textContent = 'All Done! 🎉';
+            this.elements.secondaryText.textContent = 'You\'ve mastered all cards!';
+            this.elements.translation.textContent = 'Excellent work!';
+            this.elements.example.textContent = 'All cards are now in your "Known" collection';
+            this.elements.notes.textContent = 'Come back later for more practice';
+        }
+        
         this.elements.starBtn.style.display = 'none';
         this.elements.starBtnBack.style.display = 'none';
         this.elements.audioBtn.style.display = 'none';
@@ -804,10 +871,9 @@ class FlashCardApp {
             this.saveUserProgress();
             this.authManager.logout();
         }
-    }
-
-    setupAccountSettingsListeners() {
+    }    setupAccountSettingsListeners() {
         const exportBtn = document.getElementById('exportBtn');
+        const resetSessionBtn = document.getElementById('resetSessionBtn');
         const deleteAccountBtn = document.getElementById('deleteAccountBtn');
         const closeSettings = document.getElementById('closeSettings');
         const accountSettings = document.getElementById('accountSettings');
@@ -815,6 +881,12 @@ class FlashCardApp {
         if (exportBtn) {
             exportBtn.addEventListener('click', () => {
                 this.exportUserData();
+            });
+        }
+
+        if (resetSessionBtn) {
+            resetSessionBtn.addEventListener('click', () => {
+                this.handleResetSession();
             });
         }
 
@@ -862,9 +934,7 @@ class FlashCardApp {
             
             alert('Your progress has been exported successfully!');
         }
-    }
-
-    handleDeleteAccount() {
+    }    handleDeleteAccount() {
         const confirmation = prompt(
             'Are you sure you want to delete your account? This action cannot be undone.\n\n' +
             'Type "DELETE" to confirm:'
@@ -878,7 +948,40 @@ class FlashCardApp {
                 alert('Failed to delete account: ' + error.message);
             }
         }
-    }    startStudySession() {
+    }
+
+    handleResetSession() {
+        const confirmation = confirm(
+            'Are you sure you want to reset your current session?\n\n' +
+            'This will:\n' +
+            '• Start over from the first card\n' +
+            '• Keep your overall progress (Known/Still Learning)\n' +
+            '• Allow you to review all cards again\n\n' +
+            'Your progress data will be saved.'
+        );
+        
+        if (confirmation) {
+            // Save current progress first
+            this.saveUserProgress();
+            
+            // Reset session state
+            this.state.index = 0;
+            this.state.history = [];
+            this.state.isFlipped = false;
+            this.sessionStartTime = Date.now();
+            
+            // Re-render everything
+            this.render();
+            
+            // Close settings modal
+            const accountSettings = document.getElementById('accountSettings');
+            if (accountSettings) {
+                accountSettings.style.display = 'none';
+            }
+            
+            console.log('✅ Session reset successfully');
+        }
+    }startStudySession() {
         if (!this.authManager || !this.authManager.getCurrentUser()) {
             return;
         }
