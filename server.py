@@ -22,15 +22,14 @@ BASE_DIR = Path(__file__).parent
 app = Flask(__name__)
 
 # Get configuration from environment variables for production
-SECRET_KEY = os.environ.get('SECRET_KEY', 'your-secret-key-change-this-in-production')
+SECRET_KEY = os.environ.get('SECRET_KEY', 'development-secret-key-flashcards-2025')
 DATABASE_URL = os.environ.get('DATABASE_URL', 'sqlite:///flashcards.db')
 FLASK_ENV = os.environ.get('FLASK_ENV', 'development')
 
-# Make sure SECRET_KEY is set and consistent
-if SECRET_KEY == 'your-secret-key-change-this-in-production':
-    # Generate a consistent key based on app location for development
-    import hashlib
-    SECRET_KEY = hashlib.md5(str(BASE_DIR).encode()).hexdigest()
+# Use a fixed secret key for development to ensure session consistency
+if FLASK_ENV == 'development' and SECRET_KEY == 'development-secret-key-flashcards-2025':
+    SECRET_KEY = 'flashcards-development-secret-key-that-never-changes-2025'
+    print(f"🔑 Using fixed development SECRET_KEY for session consistency")
 
 app.config['SECRET_KEY'] = SECRET_KEY
 app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
@@ -178,13 +177,16 @@ def register():
         
         if User.query.filter_by(email=email).first():
             return jsonify({'error': 'Email already registered'}), 400
-        
-        # Create new user
+          # Create new user
         user = User(username=username, email=email)
         user.set_password(password)
         
+        print(f"✅ Creating new user: {username} with email: {email}")
+        
         db.session.add(user)
         db.session.commit()
+        
+        print(f"✅ User {username} created successfully with ID: {user.id}")
         
         # Log the user in
         session['user_id'] = user.id
@@ -212,13 +214,22 @@ def login():
         username = data['username'].strip()
         password = data['password']
         
+        print(f"🔍 Login attempt - Username: {username}")
+        
         # Find user by username or email
         user = User.query.filter(
             (User.username == username) | (User.email == username.lower())
         ).first()
         
-        if not user or not user.check_password(password):
+        if not user:
+            print(f"❌ User not found: {username}")
             return jsonify({'error': 'Invalid username or password'}), 401
+            
+        if not user.check_password(password):
+            print(f"❌ Password incorrect for user: {username}")
+            return jsonify({'error': 'Invalid username or password'}), 401
+        
+        print(f"✅ Login successful for user: {username}")
         
         # Update last login
         user.last_login = datetime.utcnow()
@@ -475,6 +486,15 @@ def debug_session():
         'secret_key_set': bool(app.config.get('SECRET_KEY')),
         'secret_key_length': len(app.config.get('SECRET_KEY', '')),
         'flask_env': app.config.get('FLASK_ENV', 'not set')
+    })
+
+@app.route('/api/debug/users')
+def debug_users():
+    """Debug user information."""
+    users = User.query.all()
+    return jsonify({
+        'total_users': len(users),
+        'users': [{'id': u.id, 'username': u.username, 'email': u.email} for u in users]
     })
 
 # Static file serving

@@ -1,24 +1,14 @@
 /**
- * Authentication system for Flash Cards        this.showApp();        console.log('👤 Starting app in anonymous mode - login available');
-        this.updateDebugInfo();App - Server Version
+ * Authentication system for Flash Cards App - Server Version
  * Handles user registration, login, and session management with Flask backend
  */
 
 class AuthManager {    constructor() {
         this.currentUser = null;
         this.apiBase = '/api';  // Flask API base URL
-        this.debugMode = localStorage.getItem('flashcards-debug') === 'true';
-        
-        // Add debug info if enabled
-        if (this.debugMode) {
-            this.createDebugPanel();
-        }
-        
         this.initializeAuth();
         this.setupUIEventListeners();
     }async initializeAuth() {
-        console.log('🔄 Initializing authentication...');
-        
         try {
             // Check if user is already logged in on server
             const response = await fetch(`${this.apiBase}/user`, {
@@ -29,43 +19,29 @@ class AuthManager {    constructor() {
             });
 
             if (response.ok) {
-                const data = await response.json();                this.currentUser = data.user;
+                const data = await response.json();
+                this.currentUser = data.user;
                 this.showApp();
                 console.log('✅ User authenticated:', this.currentUser.username);
-                this.updateUserInfo();
-                this.updateDebugInfo();
                 return;
-            } else {
-                console.log('❌ Authentication check failed:', response.status);
             }
         } catch (error) {
-            console.log('⚠️ Authentication check error:', error.message);
+            console.log('No existing session found');
         }
         
         // Show app directly without login requirement
         this.currentUser = null;
-        this.showApp();        console.log('� Starting app in anonymous mode - login available');
+        this.showApp();        console.log('📱 Starting app in anonymous mode');
     }    setupUIEventListeners() {
-        // Login prompt button click - using event delegation for reliability
+        // Login prompt button click
         document.addEventListener('click', (e) => {
-            // Multiple ways to access login
-            if (e.target.id === 'promptLoginBtn' || 
-                e.target.id === 'fallbackLoginBtn' ||
-                e.target.classList.contains('prompt-login-btn') ||
-                e.target.classList.contains('fallback-login-btn')) {
-                
-                e.preventDefault();
-                console.log('🔑 Login button clicked:', e.target.id || e.target.className);
+            if (e.target.id === 'promptLoginBtn' || e.target.id === 'fallbackLoginBtn') {
+                console.log('🔑 Login button clicked:', e.target.id);
                 this.showLoginScreen();
-                return;
             }
-            
-            // Logout button
             if (e.target.id === 'logoutBtn') {
-                e.preventDefault();
                 console.log('🚪 Logout button clicked');
                 this.logout();
-                return;
             }
         });
 
@@ -73,78 +49,10 @@ class AuthManager {    constructor() {
         document.addEventListener('keydown', (e) => {
             if (e.ctrlKey && e.key === 'l' && !this.currentUser) {
                 e.preventDefault();
-                console.log('🔑 Login shortcut pressed (Ctrl+L)');
+                console.log('🔑 Login shortcut pressed');
                 this.showLoginScreen();
             }
         });
-        
-        // Add double-click anywhere to access login (for debugging)
-        let clickCount = 0;
-        document.addEventListener('click', (e) => {
-            if (!this.currentUser) {
-                clickCount++;
-                setTimeout(() => { clickCount = 0; }, 1000);
-                
-                if (clickCount === 3) {
-                    console.log('🔑 Triple-click detected - showing login');
-                    this.showLoginScreen();
-                    clickCount = 0;
-                }
-            }
-        });        console.log('✅ UI Event listeners set up');
-    }
-
-    createDebugPanel() {
-        const debugPanel = document.createElement('div');
-        debugPanel.id = 'authDebugPanel';
-        debugPanel.style.cssText = `
-            position: fixed;
-            top: 10px;
-            right: 10px;
-            background: rgba(0,0,0,0.8);
-            color: white;
-            padding: 10px;
-            border-radius: 5px;
-            font-size: 12px;
-            z-index: 1000;
-            max-width: 200px;
-        `;
-        debugPanel.innerHTML = `
-            <div><strong>Auth Debug</strong></div>
-            <div id="debugUser">User: Loading...</div>
-            <div id="debugSession">Session: Checking...</div>
-            <button onclick="localStorage.setItem('flashcards-debug', 'false'); location.reload();" 
-                    style="background: red; color: white; border: none; padding: 2px 5px; margin-top: 5px;">
-                Disable Debug
-            </button>
-        `;
-        document.body.appendChild(debugPanel);
-    }
-
-    updateDebugInfo() {
-        if (!this.debugMode) return;
-        
-        const debugUser = document.getElementById('debugUser');
-        const debugSession = document.getElementById('debugSession');
-        
-        if (debugUser) {
-            debugUser.textContent = `User: ${this.currentUser ? this.currentUser.username : 'Anonymous'}`;
-        }
-        
-        if (debugSession) {
-            fetch('/api/debug/session', { credentials: 'include' })
-                .then(r => r.json())
-                .then(data => {
-                    if (debugSession) {
-                        debugSession.textContent = `Session: ${data.has_user_id ? 'Active' : 'None'}`;
-                    }
-                })
-                .catch(() => {
-                    if (debugSession) {
-                        debugSession.textContent = 'Session: Error';
-                    }
-                });
-        }
     }
 
     async register(username, email, password) {
