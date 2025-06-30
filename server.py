@@ -21,15 +21,22 @@ BASE_DIR = Path(__file__).parent
 # Configuration
 app = Flask(__name__)
 
-# Get configuration from environment variables for production
-SECRET_KEY = os.environ.get('SECRET_KEY', 'development-secret-key-flashcards-2025')
-DATABASE_URL = os.environ.get('DATABASE_URL', 'sqlite:///flashcards.db')
+# Get configuration from environment variables
 FLASK_ENV = os.environ.get('FLASK_ENV', 'development')
 
-# Use a fixed secret key for development to ensure session consistency
-if FLASK_ENV == 'development' and SECRET_KEY == 'development-secret-key-flashcards-2025':
+if FLASK_ENV == 'production':
+    # In production, SECRET_KEY must be set as an environment variable
+    SECRET_KEY = os.environ.get('SECRET_KEY')
+    if not SECRET_KEY:
+        raise ValueError("No SECRET_KEY set for production environment. Please set the SECRET_KEY environment variable.")
+    print("🔒 Using production SECRET_KEY from environment variable.")
+else:
+    # For development, use a fixed, non-guessable key for session consistency
     SECRET_KEY = 'flashcards-development-secret-key-that-never-changes-2025'
-    print(f"🔑 Using fixed development SECRET_KEY for session consistency")
+    print("🔑 Using fixed development SECRET_KEY for session consistency.")
+
+# Use an absolute path for the database to avoid ambiguity
+DATABASE_URL = os.environ.get('DATABASE_URL', f'sqlite:///{BASE_DIR.joinpath("flashcards.db")}')
 
 app.config['SECRET_KEY'] = SECRET_KEY
 app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
