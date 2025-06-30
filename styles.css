@@ -506,6 +506,17 @@ body {
     margin-bottom: 12px;
 }
 
+.demo-credentials {
+    background: var(--bg-secondary);
+    padding: 12px;
+    border-radius: 6px;
+    margin: 8px 0;
+    font-family: monospace;
+    font-size: 13px;
+    color: var(--text-primary);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
 .demo-btn {
     background: var(--accent-learning);
     color: white;
@@ -678,6 +689,29 @@ body {
 
 .fallback-login-btn:active {
     transform: scale(0.95);
+}
+
+/* Version Info */
+.version-info {
+    position: fixed;
+    bottom: 10px;
+    right: 10px;
+    font-size: 11px;
+    color: var(--text-secondary);
+    opacity: 0.6;
+    font-family: monospace;
+    z-index: 1000;
+    padding: 2px 6px;
+    background: var(--bg-secondary);
+    border-radius: 4px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Hide version info on very small screens */
+@media (max-width: 400px) {
+    .version-info {
+        display: none;
+    }
 }
 
 /* Responsive adjustments */

@@ -7,7 +7,6 @@ class AuthManager {
     constructor() {
         this.currentUser = null;
         this.users = this.loadUsers();
-        console.log('AuthManager initialized with users:', Object.keys(this.users));
         this.initializeAuth();
     }
 
@@ -24,8 +23,6 @@ class AuthManager {
                 }
             } catch (error) {
                 console.error('Invalid session data:', error);
-                // Clear corrupted session data
-                localStorage.removeItem('flashcard-session');
             }
         }
         
@@ -35,51 +32,21 @@ class AuthManager {
 
     validateSession(session) {
         // Check if session is valid (not expired, user exists)
-        if (!session.username || !session.timestamp) {
-            console.log('Session validation failed: Missing username or timestamp');
-            return false;
-        }
+        if (!session.username || !session.timestamp) return false;
         
         // Session expires after 30 days
         const sessionAge = Date.now() - session.timestamp;
         const maxAge = 30 * 24 * 60 * 60 * 1000; // 30 days in milliseconds
         
-        if (sessionAge > maxAge) {
-            console.log('Session validation failed: Session expired');
-            return false;
-        }
-        
-        // Ensure users are loaded before checking
-        this.users = this.loadUsers();
+        if (sessionAge > maxAge) return false;
         
         // Check if user still exists
-        if (!this.users.hasOwnProperty(session.username)) {
-            console.log(`Session validation failed: User '${session.username}' not found`);
-            return false;
-        }
-        
-        console.log(`Session validation successful for user: ${session.username}`);
-        return true;
+        return this.users.hasOwnProperty(session.username);
     }
 
     loadUsers() {
-        try {
-            const savedUsers = localStorage.getItem('flashcard-users');
-            if (!savedUsers) {
-                console.log('No saved users found, initializing empty user database');
-                return {};
-            }
-            
-            const users = JSON.parse(savedUsers);
-            console.log(`Loaded ${Object.keys(users).length} users from localStorage`);
-            return users;
-        } catch (error) {
-            console.error('Error loading users from localStorage:', error);
-            console.log('Initializing empty user database due to corrupted data');
-            // Clear corrupted data
-            localStorage.removeItem('flashcard-users');
-            return {};
-        }
+        const savedUsers = localStorage.getItem('flashcard-users');
+        return savedUsers ? JSON.parse(savedUsers) : {};
     }
 
     saveUsers() {
@@ -154,18 +121,12 @@ class AuthManager {
             throw new Error('Username and password are required');
         }
 
-        console.log(`Attempting login for user: ${username}`);
-        
         const user = this.users[username];
         if (!user) {
-            console.log(`Login failed: User '${username}' not found`);
-            console.log('Available users:', Object.keys(this.users));
             throw new Error('Invalid username or password');
         }
 
-        const hashedPassword = this.hashPassword(password);
-        if (user.password !== hashedPassword) {
-            console.log(`Login failed: Incorrect password for user '${username}'`);
+        if (user.password !== this.hashPassword(password)) {
             throw new Error('Invalid username or password');
         }
 
@@ -177,23 +138,12 @@ class AuthManager {
         };
 
         localStorage.setItem('flashcard-session', JSON.stringify(session));
-        console.log(`Login successful for user: ${username}`);
         return true;
     }
 
     logout() {
-        console.log(`Logging out user: ${this.currentUser}`);
         this.currentUser = null;
         localStorage.removeItem('flashcard-session');
-        this.showLoginScreen();
-    }
-
-    clearAllAuthData() {
-        console.log('Clearing all authentication data');
-        localStorage.removeItem('flashcard-session');
-        localStorage.removeItem('flashcard-users');
-        this.currentUser = null;
-        this.users = {};
         this.showLoginScreen();
     }
 
@@ -309,8 +259,12 @@ class AuthManager {
                     <button type="submit" class="auth-btn">Sign In</button>
                     
                     <div class="demo-account">
-                        <p>Try the demo account:</p>
-                        <button type="button" class="demo-btn" id="demoBtn">Use Demo Account</button>
+                        <p>Built-in account available:</p>
+                        <div class="demo-credentials">
+                            <strong>Username:</strong> user<br>
+                            <strong>Password:</strong> password123
+                        </div>
+                        <button type="button" class="demo-btn" id="demoBtn">Use Built-in Account</button>
                     </div>
                 </form>
                 
@@ -425,29 +379,15 @@ class AuthManager {
 
     setupDemoAccount() {
         try {
-            // Create demo account if it doesn't exist
-            if (!this.users['demo']) {
-                this.register('demo', 'demo123', 'demo@example.com');
-                
-                // Add some demo progress
-                this.users['demo'].progress = {
-                    knownIds: ['1', '3'],
-                    learningIds: ['2'],
-                    history: [],
-                    favourites: ['2', '4'],
-                    lastCardIndex: 2,
-                    totalSessionTime: 150000,
-                    streakDays: 3,
-                    lastActiveDate: Date.now()
-                };
-                this.saveUsers();
-            }
+            // Fill in the built-in account credentials
+            document.getElementById('loginUsername').value = 'user';
+            document.getElementById('loginPassword').value = 'password123';
             
-            this.login('demo', 'demo123');
-            this.showApp();
+            // Clear any existing errors and show success message
             this.clearError();
         } catch (error) {
-            this.showError('Demo account setup failed');
+            console.error('Error setting up built-in account:', error);
+            this.showError('Failed to set up built-in account');
         }
     }
 
@@ -497,41 +437,12 @@ class AuthManager {
 
         return JSON.stringify(userData, null, 2);
     }
-
-    // Debug helper function
-    debugAuth() {
-        const session = localStorage.getItem('flashcard-session');
-        const users = localStorage.getItem('flashcard-users');
-        
-        console.log('=== Authentication Debug Info ===');
-        console.log('Current user:', this.currentUser);
-        console.log('Session data:', session);
-        console.log('Users data length:', users ? users.length : 'null');
-        console.log('Users in memory:', Object.keys(this.users));
-        
-        if (session) {
-            try {
-                const parsedSession = JSON.parse(session);
-                console.log('Parsed session:', parsedSession);
-                console.log('Session age (hours):', (Date.now() - parsedSession.timestamp) / (1000 * 60 * 60));
-                console.log('Session valid:', this.validateSession(parsedSession));
-            } catch (e) {
-                console.log('Session parse error:', e);
-            }
-        }
-        
-        console.log('==================================');
-    }
 }
 
 // Initialize auth manager when DOM is loaded
 let authManager;
 document.addEventListener('DOMContentLoaded', () => {
     authManager = new AuthManager();
-    
-    // Add debug helper to global scope
-    window.debugAuth = () => authManager.debugAuth();
-    window.clearAuth = () => authManager.clearAllAuthData();
 });
 
 // Export for use in other files

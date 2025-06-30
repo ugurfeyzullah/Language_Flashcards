@@ -18,6 +18,9 @@ from pathlib import Path
 # Get the directory where the script is located
 BASE_DIR = Path(__file__).parent
 
+# Application version
+APP_VERSION = "1.0.0"
+
 # Configuration
 app = Flask(__name__)
 
@@ -504,6 +507,11 @@ def debug_users():
         'users': [{'id': u.id, 'username': u.username, 'email': u.email} for u in users]
     })
 
+@app.route('/api/version')
+def get_version():
+    """Get application version."""
+    return jsonify({'version': APP_VERSION})
+
 # Static file serving
 @app.route('/')
 def index():
@@ -520,6 +528,22 @@ def init_db():
     """Initialize the database."""
     with app.app_context():
         db.create_all()
+        
+        # Create built-in account if it doesn't exist
+        builtin_username = 'user'
+        builtin_email = 'user@flashcards.local'
+        builtin_password = 'password123'
+        
+        existing_user = User.query.filter_by(username=builtin_username).first()
+        if not existing_user:
+            builtin_user = User(username=builtin_username, email=builtin_email)
+            builtin_user.set_password(builtin_password)
+            db.session.add(builtin_user)
+            db.session.commit()
+            print(f"✅ Created built-in account: {builtin_username} / {builtin_password}")
+        else:
+            print(f"✅ Built-in account already exists: {builtin_username}")
+        
         print("✅ Database initialized successfully")
 
 def main():
@@ -534,10 +558,11 @@ def main():
         
         server_url = f"http://localhost:{port}"
         
-        print(f"🚀 Language Flash Cards Server (Flask + Database)")
+        print(f"🚀 Language Flash Cards Server v{APP_VERSION} (Flask + Database)")
         print(f"📍 Serving from: {BASE_DIR}")
         print(f"🌐 Server running at: {server_url}")
         print(f"🗄️  Database: SQLite (flashcards.db)")
+        print(f"👤 Built-in account: user / password123")
         print(f"📱 Open the app in your browser")
         print(f"⏹️  Press Ctrl+C to stop the server")
         print("-" * 60)
