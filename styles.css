@@ -545,6 +545,13 @@ body {
     border: 1px solid rgba(231, 76, 60, 0.2);
 }
 
+/* Info Message */
+.error-message.info {
+    background: rgba(52, 152, 219, 0.1);
+    color: #3498db;
+    border: 1px solid rgba(52, 152, 219, 0.2);
+}
+
 /* User Info in App */
 .user-info {
     position: absolute;

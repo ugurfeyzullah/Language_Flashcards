@@ -19,7 +19,7 @@ from pathlib import Path
 BASE_DIR = Path(__file__).parent
 
 # Application version
-APP_VERSION = "1.0.0"
+APP_VERSION = "1.0.2"
 
 # Configuration
 app = Flask(__name__)

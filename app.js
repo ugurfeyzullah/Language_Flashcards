@@ -719,6 +719,10 @@ class FlashCardApp {
             return;
         }
 
+        // ENSURE GERMAN WORD IS ALWAYS SHOWN FIRST
+        // Force the card to always start on the front side (German)
+        this.state.isFlipped = false;
+
         // Add review indicator if this is a review card
         const cardContainer = document.getElementById('cardContainer');
         if (currentCard._isReviewCard) {
