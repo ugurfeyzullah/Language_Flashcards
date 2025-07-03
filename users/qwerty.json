@@ -1,0 +1,42 @@
+{
+  "username": "qwerty",
+  "email": "",
+  "created_at": "2025-07-03T16:29:08.248221",
+  "last_login": "2025-07-03T16:29:17.107196",
+  "progress": {
+    "known_cards": [
+      "card_1",
+      "card_3",
+      "card_5"
+    ],
+    "learning_cards": [
+      "card_2",
+      "card_4"
+    ],
+    "total_sessions": 19,
+    "total_cards_learned": 3,
+    "streak_days": 1,
+    "last_session_date": "2025-07-03",
+    "preferences": {
+      "theme": "dark",
+      "last_card_index": 5,
+      "cards_since_last_review": 5,
+      "next_review_interval": 40
+    },
+    "favourites": [],
+    "session_time": 59640
+  },
+  "statistics": {
+    "sessions_by_date": {
+      "2025-07-03": {
+        "sessions": 19,
+        "new_cards_learned": 3,
+        "cards_reviewed": 84
+      }
+    },
+    "learning_progress": [],
+    "difficulty_ratings": {}
+  },
+  "password_hash": "e001565200cec1219fb4820140b6379b00d412a830a8fd63d0b42429db7d8139",
+  "salt": "c2dfed50d4512d1cc231935b69523810"
+}

@@ -39,6 +39,7 @@ class FlashCardApp {
     }    initializeApp() {
         this.authManager = authManager;
         this.loginPromptTimeout = null;
+        this.progressLoaded = false; // Flag to prevent saving before loading
           this.state = {
             cards: [],
             index: 0,
@@ -81,7 +82,7 @@ class FlashCardApp {
             // Initialize the app after cards are loaded
             this.initializeElements();
             this.setupEventListeners();
-            this.loadUserProgress();
+            await this.loadUserProgress(); // Make sure this completes first
             this.applyTheme();
             this.render();
         } catch (error) {
@@ -92,7 +93,7 @@ class FlashCardApp {
             
             this.initializeElements();
             this.setupEventListeners();
-            this.loadUserProgress();
+            await this.loadUserProgress(); // Make sure this completes first
             this.applyTheme();
             this.render();
         }
@@ -836,6 +837,13 @@ class FlashCardApp {
         // This method is now handled by loadUserProgress
         this.loadUserProgress();
     }    async saveUserProgress() {
+        console.log('🔍 [CLIENT DEBUG] saveUserProgress called, progressLoaded:', this.progressLoaded);
+        
+        if (!this.progressLoaded) {
+            console.log('🔍 [CLIENT DEBUG] Progress not yet loaded, skipping save to prevent overwrite');
+            return;
+        }
+        
         if (!this.authManager || !this.authManager.getCurrentUser()) {
             // Show login prompt for anonymous users
             this.showLoginPrompt();
@@ -848,17 +856,25 @@ class FlashCardApp {
             // Get favorite cards
             const favourites = this.state.cards.filter(card => card.isFavourite).map(card => card.id);
               const progressData = {
-                knownIds: [...this.state.knownIds],
-                learningIds: [...this.state.learningIds],
+                known_cards: [...this.state.knownIds],
+                learning_cards: [...this.state.learningIds],
                 favourites: favourites,
-                theme: this.state.theme,
-                lastCardIndex: this.state.index,
-                cardsSinceLastReview: this.state.cardsSinceLastReview,
-                nextReviewInterval: this.state.nextReviewInterval,
-                totalSessionTime: sessionTime
+                preferences: {
+                    theme: this.state.theme,
+                    last_card_index: this.state.index,
+                    cards_since_last_review: this.state.cardsSinceLastReview,
+                    next_review_interval: this.state.nextReviewInterval
+                },
+                session_time: sessionTime
             };
 
-            this.authManager.saveUserProgress(progressData);
+            console.log('🔍 [CLIENT DEBUG] Saving progress:', {
+                known_cards: progressData.known_cards.length,
+                learning_cards: progressData.learning_cards.length,
+                favourites: progressData.favourites.length
+            });
+
+            await this.authManager.saveProgress(progressData);
             
             // Update last saved state
             this.lastSavedProgress = {
@@ -868,24 +884,34 @@ class FlashCardApp {
             };
             
             this.sessionStartTime = Date.now(); // Reset session timer
-            console.log('✅ Progress saved to localStorage');
+            
+            console.log('✅ Progress saved to server');
         } catch (error) {
-            console.error('Failed to save progress:', error);
+            console.error('❌ Failed to save progress:', error);
         }
-    }    async loadUserProgress() {
+    }
+
+    async loadUserProgress() {
+        console.log('🔍 [CLIENT DEBUG] Starting loadUserProgress...');
         if (!this.authManager || !this.authManager.getCurrentUser()) {
+            console.log('🔍 [CLIENT DEBUG] No authenticated user, skipping progress load');
+            this.progressLoaded = true;
             return;
         }
 
         try {
-            const progress = this.authManager.getUserProgress();
-            if (progress) {                this.state = {
+            console.log('🔍 [CLIENT DEBUG] Loading progress from server...');
+            const progress = await this.authManager.loadProgress();
+            if (progress) {
+                console.log('🔍 [CLIENT DEBUG] Progress loaded from server:', progress);
+                
+                this.state = {
                     ...this.state,
-                    knownIds: progress.knownIds || [],
-                    learningIds: progress.learningIds || [],
-                    theme: progress.theme || 'dark',
-                    cardsSinceLastReview: progress.cardsSinceLastReview || 0,
-                    nextReviewInterval: progress.nextReviewInterval || this.getRandomReviewInterval()
+                    knownIds: progress.known_cards || [],
+                    learningIds: progress.learning_cards || [],
+                    theme: progress.preferences?.theme || 'dark',
+                    cardsSinceLastReview: progress.preferences?.cards_since_last_review || 0,
+                    nextReviewInterval: progress.preferences?.next_review_interval || this.getRandomReviewInterval()
                 };
 
                 // Restore favorites
@@ -897,38 +923,41 @@ class FlashCardApp {
                 }
 
                 // Restore last card index if available
-                if (progress.lastCardIndex !== undefined && progress.lastCardIndex < this.state.cards.length) {
-                    this.state.index = progress.lastCardIndex;
+                if (progress.preferences?.last_card_index !== undefined && progress.preferences.last_card_index < this.state.cards.length) {
+                    this.state.index = progress.preferences.last_card_index;
                 }
                 
                 // Initialize last saved progress
                 this.lastSavedProgress = {
-                    knownIds: [...(progress.knownIds || [])],
-                    learningIds: [...(progress.learningIds || [])],
+                    knownIds: [...(progress.known_cards || [])],
+                    learningIds: [...(progress.learning_cards || [])],
                     favourites: [...(progress.favourites || [])]
                 };
                 
-                console.log('✅ Progress loaded from localStorage');
+                console.log('✅ Progress loaded from server');
                 console.log('Known cards:', this.state.knownIds.length);
                 console.log('Learning cards:', this.state.learningIds.length);
                 console.log('Favorite cards:', progress.favourites?.length || 0);
             } else {
-                // Initialize empty progress state
+                console.log('🔍 [CLIENT DEBUG] No progress data found on server');
+                // Initialize empty progress for new users
                 this.lastSavedProgress = {
                     knownIds: [],
                     learningIds: [],
                     favourites: []
                 };
             }
-
-            // Show user info
-            const userInfoElement = document.getElementById('userInfo');
-            if (userInfoElement) {
-                userInfoElement.style.display = 'block';
-                this.authManager.updateUserInfo();
-            }
         } catch (error) {
-            console.error('Failed to load progress:', error);
+            console.error('❌ Failed to load progress:', error);
+            // Initialize empty progress on error
+            this.lastSavedProgress = {
+                knownIds: [],
+                learningIds: [],
+                favourites: []
+            };
+        } finally {
+            this.progressLoaded = true;
+            console.log('🔍 [CLIENT DEBUG] Progress loading complete, progressLoaded flag set to true');
         }
     }
 
@@ -1067,7 +1096,19 @@ class FlashCardApp {
     }
 }
 
-// Initialize the app when the DOM is loaded
+// Global function for server auth to call when user logs in
+window.initializeFlashCardApp = function() {
+    console.log('🔍 [CLIENT DEBUG] initializeFlashCardApp called from server auth');
+    if (!window.flashCardApp) {
+        console.log('🔍 [CLIENT DEBUG] Creating new FlashCardApp instance');
+        window.flashCardApp = new FlashCardApp();
+    } else {
+        console.log('🔍 [CLIENT DEBUG] FlashCardApp already exists, reloading progress');
+        window.flashCardApp.loadUserProgress();
+    }
+};
+
+// Initialize app when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
     // Wait for authentication to complete before initializing the app
     const initializeAppWhenReady = () => {
@@ -1088,9 +1129,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Also listen for custom auth events
 document.addEventListener('authReady', () => {
-    if (!window.flashCardApp) {
-        window.flashCardApp = new FlashCardApp();
-    }
+    window.initializeFlashCardApp();
 });
 
 // Export for potential module use
