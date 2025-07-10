@@ -2,18 +2,18 @@
 """
 Flask server for the Language Flash Cards web application.
 Handles user authentication, progress tracking, and API endpoints.
+Uses the file-based user management system.
 """
 
 from flask import Flask, request, jsonify, session, send_from_directory, render_template_string
-from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
-from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timedelta
 import os
 import sys
 import json
 import webbrowser
 from pathlib import Path
+from user_manager import user_manager
 
 # Get the directory where the script is located
 BASE_DIR = Path(__file__).parent
@@ -38,12 +38,7 @@ else:
     SECRET_KEY = 'flashcards-development-secret-key-that-never-changes-2025'
     print("🔑 Using fixed development SECRET_KEY for session consistency.")
 
-# Use an absolute path for the database to avoid ambiguity
-DATABASE_URL = os.environ.get('DATABASE_URL', f'sqlite:///{BASE_DIR.joinpath("flashcards.db")}')
-
 app.config['SECRET_KEY'] = SECRET_KEY
-app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=30)
 
 # Session configuration for better persistence
@@ -59,93 +54,19 @@ else:
     app.config['SESSION_COOKIE_SECURE'] = False
 
 # Initialize extensions
-db = SQLAlchemy(app)
 CORS(app, supports_credentials=True)
 
-# Database Models
-class User(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(80), unique=True, nullable=False)
-    email = db.Column(db.String(120), unique=True, nullable=False)
-    password_hash = db.Column(db.String(128), nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    last_login = db.Column(db.DateTime, default=datetime.utcnow)
-    
-    # Relationships
-    progress = db.relationship('UserProgress', backref='user', lazy=True, cascade='all, delete-orphan')
-    favorites = db.relationship('UserFavorite', backref='user', lazy=True, cascade='all, delete-orphan')
+# Ensure users directory exists
+users_dir = BASE_DIR / "users"
+users_dir.mkdir(exist_ok=True)
 
-    def set_password(self, password):
-        self.password_hash = generate_password_hash(password)
-    
-    def check_password(self, password):
-        return check_password_hash(self.password_hash, password)
-    
-    def to_dict(self):
-        return {
-            'id': self.id,
-            'username': self.username,
-            'email': self.email,
-            'created_at': self.created_at.isoformat(),
-            'last_login': self.last_login.isoformat()
-        }
-
-class UserProgress(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    card_id = db.Column(db.String(50), nullable=False)
-    
-    # Progress tracking
-    known_count = db.Column(db.Integer, default=0)
-    learning_count = db.Column(db.Integer, default=0)
-    total_attempts = db.Column(db.Integer, default=0)
-    correct_attempts = db.Column(db.Integer, default=0)
-    
-    # Timestamps
-    first_seen = db.Column(db.DateTime, default=datetime.utcnow)
-    last_seen = db.Column(db.DateTime, default=datetime.utcnow)
-    last_known = db.Column(db.DateTime)
-    last_learning = db.Column(db.DateTime)
-    
-    # Study statistics
-    study_streak = db.Column(db.Integer, default=0)
-    difficulty_rating = db.Column(db.Float, default=0.5)  # 0.0 = easy, 1.0 = hard
-    
-    # Unique constraint
-    __table_args__ = (db.UniqueConstraint('user_id', 'card_id', name='_user_card_progress'),)
-    
-    def to_dict(self):
-        return {
-            'card_id': self.card_id,
-            'known_count': self.known_count,
-            'learning_count': self.learning_count,
-            'total_attempts': self.total_attempts,
-            'correct_attempts': self.correct_attempts,
-            'accuracy': self.correct_attempts / max(self.total_attempts, 1),
-            'first_seen': self.first_seen.isoformat(),
-            'last_seen': self.last_seen.isoformat(),
-            'study_streak': self.study_streak,
-            'difficulty_rating': self.difficulty_rating
-        }
-
-class UserFavorite(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    card_id = db.Column(db.String(50), nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    
-    # Unique constraint
-    __table_args__ = (db.UniqueConstraint('user_id', 'card_id', name='_user_card_favorite'),)
-
-class UserSession(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    session_start = db.Column(db.DateTime, default=datetime.utcnow)
-    session_end = db.Column(db.DateTime)
-    cards_studied = db.Column(db.Integer, default=0)
-    cards_known = db.Column(db.Integer, default=0)
-    cards_learning = db.Column(db.Integer, default=0)
-    total_time_seconds = db.Column(db.Integer, default=0)
+# Helper Functions
+def init_db():
+    """Initialize the database (file-based system, nothing to do)"""
+    # Since we're using the file-based system, this function is just a placeholder
+    # to maintain compatibility with deployment scripts
+    print("Using file-based user management system (no database initialization required)")
+    return True
 
 # Helper Functions
 def get_current_user():
