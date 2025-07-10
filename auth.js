@@ -13,25 +13,19 @@ class AuthManager {
     initializeAuth() {
         console.log('🔐 Initializing authentication system...');
         
-        // Check if user is already logged in
-        const savedSession = localStorage.getItem('flashcard-session');
-        if (savedSession) {
-            try {
-                const session = JSON.parse(savedSession);
-                if (this.validateSession(session)) {
-                    this.currentUser = session.username;
-                    console.log(`✅ Restored session for user: ${this.currentUser}`);
-                    this.showApp();
-                    return;
-                }
-            } catch (error) {
-                console.error('Invalid session data:', error);
-                localStorage.removeItem('flashcard-session');
-            }
-        }
+        // Automatically use the default user without login
+        this.currentUser = 'user';
+        console.log(`✅ Auto-login with default user: ${this.currentUser}`);
         
-        // Show login screen if no valid session
-        this.showLoginScreen();
+        // Create and save a session
+        const session = {
+            username: this.currentUser,
+            timestamp: Date.now()
+        };
+        localStorage.setItem('flashcard-session', JSON.stringify(session));
+        
+        // Show the app directly
+        this.showApp();
     }
 
     validateSession(session) {
@@ -199,10 +193,18 @@ class AuthManager {
     }
 
     logout() {
-        console.log(`👋 User logged out: ${this.currentUser}`);
-        this.currentUser = null;
-        localStorage.removeItem('flashcard-session');
-        this.showLoginScreen();
+        console.log(`� Resetting user session to default`);
+        this.currentUser = 'user';
+        
+        // Create new session with default user
+        const session = {
+            username: this.currentUser,
+            timestamp: Date.now()
+        };
+        localStorage.setItem('flashcard-session', JSON.stringify(session));
+        
+        // Refresh the app
+        this.showApp();
     }
 
     getCurrentUser() {
@@ -258,8 +260,16 @@ class AuthManager {
         
         document.getElementById('app').style.display = 'flex';
         
-        // Update user info in the app
-        this.updateUserInfo();
+        // Hide login-related UI elements if they exist
+        const userInfoElement = document.getElementById('userInfo');
+        if (userInfoElement) {
+            userInfoElement.style.display = 'none';
+        }
+        
+        const logoutBtn = document.getElementById('logoutBtn');
+        if (logoutBtn) {
+            logoutBtn.style.display = 'none';
+        }
         
         // Trigger app initialization
         const authReadyEvent = new CustomEvent('authReady');
