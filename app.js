@@ -68,7 +68,7 @@ class FlashCardApp {
         this.isDragging = false;
         this.currentAudio = null;
         this.sessionStartTime = Date.now();
-    }async loadCards() {
+    }    async loadCards() {
         try {
             const response = await fetch('./flashcards.json');
             if (!response.ok) {
@@ -77,7 +77,8 @@ class FlashCardApp {
             const cards = await response.json();
             
             this.state.cards = cards;
-            console.log(`Loaded ${cards.length} flashcards from JSON`);
+            console.log(`📚 [CARD LOAD] Loaded ${cards.length} flashcards from JSON`);
+            console.log(`📚 [CARD LOAD] Card IDs: ${cards.map(c => c.id).join(', ')}`);
             
             // Initialize the app after cards are loaded
             this.initializeElements();
@@ -615,36 +616,59 @@ class FlashCardApp {
         document.body.setAttribute('data-theme', this.state.theme);
         this.elements.themeToggle.textContent = this.state.theme === 'dark' ? '☀️' : '🌙';
     }    getCurrentCard() {
+        console.log('🔍 [CARD DEBUG] getCurrentCard called');
+        console.log('🔍 [CARD DEBUG] Current index:', this.state.index);
+        console.log('🔍 [CARD DEBUG] Known cards:', this.state.knownIds);
+        console.log('🔍 [CARD DEBUG] Learning cards:', this.state.learningIds);
+        
         // First check if we should inject a review card
         if (this.shouldInjectReviewCard()) {
+            console.log('🔍 [CARD DEBUG] Should inject review card');
             const reviewCard = this.getRandomReviewCard();
             if (reviewCard) {
+                console.log('🔍 [CARD DEBUG] Injecting review card:', reviewCard.id);
                 // Mark this as a review card injection
                 reviewCard._isReviewCard = true;
                 return reviewCard;
             }
         }
         
-        // If we're at the end of the deck, check if there are still learning cards
-        if (this.state.index >= this.state.cards.length) {
-            const reviewCards = this.getCardsForReview();
-            if (reviewCards.length > 0) {
-                // Show a random review card
-                const randomCard = this.getRandomReviewCard();
-                if (randomCard) {
-                    randomCard._isReviewCard = true;
-                    return randomCard;
-                }
+        // Find the next card that hasn't been marked as known
+        while (this.state.index < this.state.cards.length) {
+            const nextCard = this.state.cards[this.state.index];
+            console.log('🔍 [CARD DEBUG] Checking card at index', this.state.index, ':', nextCard.id);
+            
+            // Skip known cards
+            if (this.state.knownIds.includes(nextCard.id)) {
+                console.log('🔍 [CARD DEBUG] Skipping known card:', nextCard.id);
+                this.state.index++;
+                continue;
             }
-            return null; // No more cards to show
+            
+            console.log('🔍 [CARD DEBUG] Returning card:', nextCard.id);
+            // Return the next unseen or learning card
+            if (nextCard) {
+                nextCard._isReviewCard = false;
+            }
+            return nextCard;
         }
         
-        // Return the next card in the normal sequence
-        const nextCard = this.state.cards[this.state.index];
-        if (nextCard) {
-            nextCard._isReviewCard = false;
+        console.log('🔍 [CARD DEBUG] Reached end of deck, checking for review cards');
+        // If we're at the end of the deck, check if there are still learning cards
+        const reviewCards = this.getCardsForReview();
+        if (reviewCards.length > 0) {
+            console.log('🔍 [CARD DEBUG] Found', reviewCards.length, 'review cards');
+            // Show a random review card
+            const randomCard = this.getRandomReviewCard();
+            if (randomCard) {
+                console.log('🔍 [CARD DEBUG] Returning random review card:', randomCard.id);
+                randomCard._isReviewCard = true;
+                return randomCard;
+            }
         }
-        return nextCard;
+        
+        console.log('🔍 [CARD DEBUG] No more cards to show');
+        return null; // No more cards to show
     }
 
     getAvailableCards() {
@@ -904,6 +928,12 @@ class FlashCardApp {
             const progress = await this.authManager.loadProgress();
             if (progress) {
                 console.log('🔍 [CLIENT DEBUG] Progress loaded from server:', progress);
+                console.log('🔍 [CLIENT DEBUG] Known cards from server:', progress.known_cards);
+                console.log('🔍 [CLIENT DEBUG] Learning cards from server:', progress.learning_cards);
+                console.log('🔍 [CLIENT DEBUG] Current state before update:');
+                console.log('🔍 [CLIENT DEBUG] - knownIds:', this.state.knownIds);
+                console.log('🔍 [CLIENT DEBUG] - learningIds:', this.state.learningIds);
+                console.log('🔍 [CLIENT DEBUG] - current index:', this.state.index);
                 
                 this.state = {
                     ...this.state,
@@ -913,6 +943,11 @@ class FlashCardApp {
                     cardsSinceLastReview: progress.preferences?.cards_since_last_review || 0,
                     nextReviewInterval: progress.preferences?.next_review_interval || this.getRandomReviewInterval()
                 };
+
+                console.log('🔍 [CLIENT DEBUG] State after update:');
+                console.log('🔍 [CLIENT DEBUG] - knownIds:', this.state.knownIds);
+                console.log('🔍 [CLIENT DEBUG] - learningIds:', this.state.learningIds);
+                console.log('🔍 [CLIENT DEBUG] - current index:', this.state.index);
 
                 // Restore favorites
                 if (progress.favourites) {
@@ -924,8 +959,12 @@ class FlashCardApp {
 
                 // Restore last card index if available
                 if (progress.preferences?.last_card_index !== undefined && progress.preferences.last_card_index < this.state.cards.length) {
+                    console.log('🔍 [CLIENT DEBUG] Restoring last card index:', progress.preferences.last_card_index);
                     this.state.index = progress.preferences.last_card_index;
                 }
+                
+                // Reset index to skip known cards
+                this.resetCardIndexToNextUnknown();
                 
                 // Initialize last saved progress
                 this.lastSavedProgress = {
@@ -938,6 +977,7 @@ class FlashCardApp {
                 console.log('Known cards:', this.state.knownIds.length);
                 console.log('Learning cards:', this.state.learningIds.length);
                 console.log('Favorite cards:', progress.favourites?.length || 0);
+                console.log('🔍 [CLIENT DEBUG] Current card after loading:', this.getCurrentCard()?.id);
             } else {
                 console.log('🔍 [CLIENT DEBUG] No progress data found on server');
                 // Initialize empty progress for new users
@@ -958,7 +998,37 @@ class FlashCardApp {
         } finally {
             this.progressLoaded = true;
             console.log('🔍 [CLIENT DEBUG] Progress loading complete, progressLoaded flag set to true');
+            
+            // Force the card index to move past known cards
+            console.log('🔍 [CLIENT DEBUG] Checking if current card is known...');
+            const currentCard = this.getCurrentCard();
+            console.log('🔍 [CLIENT DEBUG] Current card after progress load:', currentCard?.id || 'null');
+            
+            // Re-render the UI to reflect loaded progress
+            this.render();
+            this.authManager.updateUserInfo();
         }
+    }
+
+    resetCardIndexToNextUnknown() {
+        console.log('🔍 [INDEX RESET] Starting card index reset...');
+        console.log('🔍 [INDEX RESET] Current index:', this.state.index);
+        console.log('🔍 [INDEX RESET] Known cards:', this.state.knownIds);
+        console.log('🔍 [INDEX RESET] Total cards:', this.state.cards.length);
+        
+        // Find the first card that is not known
+        for (let i = 0; i < this.state.cards.length; i++) {
+            const card = this.state.cards[i];
+            if (!this.state.knownIds.includes(card.id)) {
+                console.log('🔍 [INDEX RESET] Found first unknown card at index:', i, 'card:', card.id);
+                this.state.index = i;
+                return;
+            }
+        }
+        
+        // If all cards are known, set index to end
+        console.log('🔍 [INDEX RESET] All cards are known, setting index to end');
+        this.state.index = this.state.cards.length;
     }
 
     handleLogout() {

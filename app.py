@@ -197,41 +197,77 @@ class FlashCardHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
     
     def handle_validate_session(self, request_data):
         """Handle session validation."""
+        print(f"🔍 [API DEBUG] Session validation request received")
+        
         token = self.get_auth_token(request_data)
+        print(f"🔍 [API DEBUG] Token provided: {'Yes' if token else 'No'}")
         
         if not token:
+            print(f"❌ [API DEBUG] No token provided")
             self.send_error_response(400, "Token is required")
             return
         
+        print(f"🔍 [API DEBUG] Validating session...")
         username = user_manager.validate_session(token)
+        print(f"🔍 [API DEBUG] Session validation result: {username}")
         
         if username:
+            print(f"🔍 [API DEBUG] Loading progress for validated user: {username}")
             progress = user_manager.get_user_progress(username)
+            print(f"🔍 [API DEBUG] Progress loaded: {'Yes' if progress else 'No'}")
+            
+            if progress:
+                print(f"🔍 [API DEBUG] Progress data:")
+                print(f"🔍 [API DEBUG] - Known cards: {len(progress.get('known_cards', []))}")
+                print(f"🔍 [API DEBUG] - Learning cards: {len(progress.get('learning_cards', []))}")
+                print(f"🔍 [API DEBUG] - Known card IDs: {progress.get('known_cards', [])}")
+                print(f"🔍 [API DEBUG] - Last card index: {progress.get('preferences', {}).get('last_card_index', 'Not set')}")
+                print(f"🔍 [API DEBUG] Sending validation response with progress...")
+            
             self.send_json_response({
                 "valid": True,
                 "username": username,
                 "progress": progress
             })
         else:
+            print(f"❌ [API DEBUG] Session validation failed")
             self.send_json_response({"valid": False}, 401)
     
     def handle_get_progress(self, request_data):
         """Handle getting user progress."""
+        print(f"🔍 [API DEBUG] Get progress request received")
+        
         token = self.get_auth_token(request_data)
+        print(f"🔍 [API DEBUG] Auth token provided: {'Yes' if token else 'No'}")
         
         if not token:
+            print(f"❌ [API DEBUG] No auth token provided")
             self.send_error_response(401, "Authentication required")
             return
         
+        print(f"🔍 [API DEBUG] Validating session...")
         username = user_manager.validate_session(token)
+        print(f"🔍 [API DEBUG] Session validation result: {username}")
+        
         if not username:
+            print(f"❌ [API DEBUG] Invalid session")
             self.send_error_response(401, "Invalid session")
             return
         
+        print(f"🔍 [API DEBUG] Loading progress for user: {username}")
         progress = user_manager.get_user_progress(username)
+        
         if progress:
+            print(f"🔍 [API DEBUG] Progress loaded successfully:")
+            print(f"🔍 [API DEBUG] - Known cards: {len(progress.get('known_cards', []))}")
+            print(f"🔍 [API DEBUG] - Learning cards: {len(progress.get('learning_cards', []))}")
+            print(f"🔍 [API DEBUG] - Known card IDs: {progress.get('known_cards', [])}")
+            print(f"🔍 [API DEBUG] - Learning card IDs: {progress.get('learning_cards', [])}")
+            print(f"🔍 [API DEBUG] - Last card index: {progress.get('preferences', {}).get('last_card_index', 'Not set')}")
+            print(f"🔍 [API DEBUG] Sending progress data to client...")
             self.send_json_response({"progress": progress})
         else:
+            print(f"❌ [API DEBUG] No progress found for user")
             self.send_error_response(404, "User not found")
     
     def handle_save_progress(self, request_data):

@@ -1,42 +1,50 @@
 {
   "username": "qwerty",
   "email": "",
-  "created_at": "2025-07-03T16:29:08.248221",
-  "last_login": "2025-07-03T16:29:17.107196",
+  "created_at": "2025-07-03T17:22:07.381914",
+  "last_login": "2025-07-09T16:17:36.423196",
   "progress": {
     "known_cards": [
       "card_1",
+      "card_2",
       "card_3",
-      "card_5"
+      "card_4",
+      "card_5",
+      "card_6"
     ],
     "learning_cards": [
-      "card_2",
-      "card_4"
+      "card_7",
+      "card_8"
     ],
-    "total_sessions": 19,
-    "total_cards_learned": 3,
+    "total_sessions": 56,
+    "total_cards_learned": 6,
     "streak_days": 1,
-    "last_session_date": "2025-07-03",
+    "last_session_date": "2025-07-09",
     "preferences": {
       "theme": "dark",
-      "last_card_index": 5,
-      "cards_since_last_review": 5,
-      "next_review_interval": 40
+      "last_card_index": 6,
+      "cards_since_last_review": 10,
+      "next_review_interval": 19
     },
     "favourites": [],
-    "session_time": 59640
+    "session_time": 59686
   },
   "statistics": {
     "sessions_by_date": {
       "2025-07-03": {
-        "sessions": 19,
+        "sessions": 5,
         "new_cards_learned": 3,
-        "cards_reviewed": 84
+        "cards_reviewed": 12
+      },
+      "2025-07-09": {
+        "sessions": 51,
+        "new_cards_learned": 3,
+        "cards_reviewed": 350
       }
     },
     "learning_progress": [],
     "difficulty_ratings": {}
   },
-  "password_hash": "e001565200cec1219fb4820140b6379b00d412a830a8fd63d0b42429db7d8139",
-  "salt": "c2dfed50d4512d1cc231935b69523810"
+  "password_hash": "f381db20a6e07279d704643abd98b176fafaa6f56d47627732d7e8c5314d279a",
+  "salt": "2c7f7119449bf94e66d5844b02d0f170"
 }

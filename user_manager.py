@@ -224,17 +224,30 @@ class UserManager:
     
     def validate_session(self, session_token: str) -> Optional[str]:
         """Validate session token and return username if valid."""
+        print(f"🔍 [SESSION DEBUG] Validating token: {session_token[:20]}...")
+        print(f"🔍 [SESSION DEBUG] Active sessions: {len(self.sessions)}")
+        print(f"🔍 [SESSION DEBUG] Session tokens: {[token[:20] + '...' for token in self.sessions.keys()]}")
+        
         if session_token not in self.sessions:
+            print(f"❌ [SESSION DEBUG] Token not found in active sessions")
             return None
         
         session = self.sessions[session_token]
         expires_at = datetime.fromisoformat(session["expires_at"])
+        now = datetime.now()
         
-        if datetime.now() > expires_at:
+        print(f"🔍 [SESSION DEBUG] Session expires at: {expires_at}")
+        print(f"🔍 [SESSION DEBUG] Current time: {now}")
+        print(f"🔍 [SESSION DEBUG] Time until expiry: {expires_at - now}")
+        
+        if now > expires_at:
+            print(f"❌ [SESSION DEBUG] Session expired, removing from memory")
             del self.sessions[session_token]
             return None
         
-        return session["username"]
+        username = session["username"]
+        print(f"✅ [SESSION DEBUG] Valid session for user: {username}")
+        return username
     
     def logout_user(self, session_token: str) -> Dict:
         """Logout a user by invalidating their session."""
