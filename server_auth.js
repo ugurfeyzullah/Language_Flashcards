@@ -13,56 +13,18 @@ class ServerAuthManager {
     }
 
     async initializeAuth() {
-        console.log('🔐 Initializing server-side authentication system...');
+        console.log('🔐 Bypassing authentication - going directly to app...');
         
-        // Check if user has a saved session token
-        const savedToken = localStorage.getItem('flashcard-session-token');
-        if (savedToken) {
-            try {
-                const isValid = await this.validateSession(savedToken);
-                if (isValid) {
-                    if (this.isAnonymous) {
-                        console.log(`✅ Restored anonymous session`);
-                    } else {
-                        console.log(`✅ Restored session for user: ${this.currentUser}`);
-                    }
-                    this.showApp();
-                    return;
-                }
-            } catch (error) {
-                console.error('Session validation failed:', error);
-                localStorage.removeItem('flashcard-session-token');
-            }
-        }
+        // Set up anonymous user session without server validation
+        this.isAnonymous = true;
+        this.sessionToken = 'anon_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+        this.currentUser = 'anonymous';
         
-        try {
-            // Request a new anonymous session
-            const response = await fetch(`${this.apiBase}/validate`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({}) // Empty body to request anonymous session
-            });
-            
-            if (response.ok) {
-                const data = await response.json();
-                if (data.valid && data.anonymous && data.token) {
-                    console.log('✅ Created anonymous session');
-                    this.sessionToken = data.token;
-                    localStorage.setItem('flashcard-session-token', data.token);
-                    this.isAnonymous = true;
-                    this.userProgress = data.progress;
-                    this.showApp();
-                    return;
-                }
-            }
-        } catch (error) {
-            console.error('Failed to create anonymous session:', error);
-        }
+        // Save the anonymous token
+        localStorage.setItem('flashcard-session-token', this.sessionToken);
         
-        // Show login screen if everything else fails
-        this.showLoginScreen();
+        console.log(`✅ Set up anonymous session, going directly to app`);
+        this.showApp();
     }
 
     async validateSession(token) {
@@ -193,29 +155,19 @@ class ServerAuthManager {
     }
 
     async logout() {
-        try {
-            if (this.sessionToken) {
-                await fetch(`${this.apiBase}/logout`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${this.sessionToken}`
-                    },
-                    body: JSON.stringify({ token: this.sessionToken })
-                });
-            }
-        } catch (error) {
-            console.error('Logout error:', error);
-        } finally {
-            // Clear local data regardless of server response
-            this.currentUser = null;
-            this.sessionToken = null;
-            this.userProgress = null;
-            localStorage.removeItem('flashcard-session-token');
-            
-            console.log('✅ User logged out');
-            this.showLoginScreen();
-        }
+        console.log('🔄 Logout requested - resetting to anonymous session');
+        
+        // Reset to anonymous session instead of showing login
+        this.isAnonymous = true;
+        this.sessionToken = 'anon_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+        this.currentUser = 'anonymous';
+        this.userProgress = null;
+        
+        // Save the anonymous token
+        localStorage.setItem('flashcard-session-token', this.sessionToken);
+        
+        console.log('✅ Reset to anonymous session');
+        this.showApp();
     }
 
     async saveProgress(progressData) {
@@ -328,20 +280,18 @@ class ServerAuthManager {
     }
 
     showLoginScreen() {
-        // Hide the main app
-        const app = document.getElementById('app');
-        if (app) app.style.display = 'none';
+        // Bypass login screen and go directly to app
+        console.log('Login screen bypassed - going directly to app');
         
-        // Hide user info
-        const userInfo = document.getElementById('userInfo');
-        if (userInfo) userInfo.style.display = 'none';
+        // Set up anonymous session if not already set
+        if (!this.sessionToken) {
+            this.isAnonymous = true;
+            this.sessionToken = 'anon_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+            this.currentUser = 'anonymous';
+            localStorage.setItem('flashcard-session-token', this.sessionToken);
+        }
         
-        // Hide logout button
-        const logoutBtn = document.getElementById('logoutBtn');
-        if (logoutBtn) logoutBtn.style.display = 'none';
-        
-        // Show or create login screen
-        this.createLoginScreen();
+        this.showApp();
     }
 
     showApp() {
@@ -353,47 +303,17 @@ class ServerAuthManager {
         const app = document.getElementById('app');
         if (app) app.style.display = 'block';
         
-        // Show login prompt for anonymous users
+        // Hide all login-related UI elements
         const loginPrompt = document.getElementById('loginPrompt');
         const fallbackLoginBtn = document.getElementById('fallbackLoginBtn');
         const logoutBtn = document.getElementById('logoutBtn');
+        const userInfo = document.getElementById('userInfo');
         
-        if (this.isAnonymous) {
-            // Show login prompt for anonymous users
-            if (loginPrompt) {
-                loginPrompt.style.display = 'block';
-                const promptLoginBtn = document.getElementById('promptLoginBtn');
-                if (promptLoginBtn) {
-                    promptLoginBtn.onclick = () => this.showLoginScreen();
-                }
-            }
-            
-            // Show fallback login button
-            if (fallbackLoginBtn) {
-                fallbackLoginBtn.style.display = 'block';
-                fallbackLoginBtn.onclick = () => this.showLoginScreen();
-            }
-            
-            // Hide logout button for anonymous users
-            if (logoutBtn) logoutBtn.style.display = 'none';
-            
-            // Hide user info for anonymous users
-            const userInfo = document.getElementById('userInfo');
-            if (userInfo) userInfo.style.display = 'none';
-        } else {
-            // Show user info for logged in users
-            this.updateUserInfo();
-            
-            // Hide login prompts for logged in users
-            if (loginPrompt) loginPrompt.style.display = 'none';
-            if (fallbackLoginBtn) fallbackLoginBtn.style.display = 'none';
-            
-            // Show logout button for logged in users
-            if (logoutBtn) {
-                logoutBtn.style.display = 'block';
-                logoutBtn.onclick = () => this.logout();
-            }
-        }
+        // Hide login prompts and buttons
+        if (loginPrompt) loginPrompt.style.display = 'none';
+        if (fallbackLoginBtn) fallbackLoginBtn.style.display = 'none';
+        if (logoutBtn) logoutBtn.style.display = 'none';
+        if (userInfo) userInfo.style.display = 'none';
         
         // Trigger app initialization if available
         if (typeof window.initializeFlashCardApp === 'function') {
