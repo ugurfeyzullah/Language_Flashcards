@@ -7,6 +7,15 @@ class AuthManager {
     constructor() {
         this.currentUser = null;
         this.users = this.loadUsers();
+        
+        // Remove any existing login screen immediately
+        document.addEventListener('DOMContentLoaded', () => {
+            const existingLoginScreen = document.getElementById('loginScreen');
+            if (existingLoginScreen) {
+                existingLoginScreen.remove();
+            }
+        });
+        
         this.initializeAuth();
     }
 
@@ -240,16 +249,19 @@ class AuthManager {
     }
 
     showLoginScreen() {
-        document.getElementById('app').style.display = 'none';
+        // Bypass login screen completely and show the app directly
+        console.log('Login screen bypassed');
+        this.currentUser = 'user';
         
-        // Create login screen if it doesn't exist
-        let loginScreen = document.getElementById('loginScreen');
-        if (!loginScreen) {
-            loginScreen = this.createLoginScreen();
-            document.body.appendChild(loginScreen);
-        }
+        // Create new session with default user if needed
+        const session = {
+            username: this.currentUser,
+            timestamp: Date.now()
+        };
+        localStorage.setItem('flashcard-session', JSON.stringify(session));
         
-        loginScreen.style.display = 'flex';
+        // Show the app directly instead of the login screen
+        this.showApp();
     }
 
     showApp() {
@@ -282,28 +294,19 @@ class AuthManager {
     }
 
     updateUserInfo() {
+        // Hide user info element
         const userInfoElement = document.getElementById('userInfo');
-        if (userInfoElement && this.currentUser) {
-            const user = this.users[this.currentUser];
-            const progress = user.progress;
-            
-            userInfoElement.innerHTML = `
-                <div class="user-welcome">Welcome, ${this.currentUser}!</div>
-                <div class="user-stats">
-                    <span class="stat">Known: ${progress.knownIds.length}</span>
-                    <span class="stat">Learning: ${progress.learningIds.length}</span>
-                    <span class="stat">Favorites: ${progress.favourites.length}</span>
-                </div>
-            `;
-            userInfoElement.style.display = 'block';
-            
-            // Show logout button
-            const logoutBtn = document.getElementById('logoutBtn');
-            if (logoutBtn) {
-                logoutBtn.style.display = 'block';
-                logoutBtn.addEventListener('click', () => this.logout());
-            }
+        if (userInfoElement) {
+            userInfoElement.style.display = 'none';
         }
+        
+        // Hide logout button
+        const logoutBtn = document.getElementById('logoutBtn');
+        if (logoutBtn) {
+            logoutBtn.style.display = 'none';
+        }
+        
+        // Data is still tracked in the background using the default user
     }
 
     createLoginScreen() {
@@ -519,5 +522,18 @@ class AuthManager {
 // Initialize the auth manager when the script loads
 let authManager;
 document.addEventListener('DOMContentLoaded', () => {
+    // Hide any login screen immediately
+    const loginScreen = document.getElementById('loginScreen');
+    if (loginScreen) {
+        loginScreen.style.display = 'none';
+    }
+    
+    // Show the app container immediately
+    const appContainer = document.getElementById('app');
+    if (appContainer) {
+        appContainer.style.display = 'flex';
+    }
+    
+    // Initialize the auth manager
     authManager = new AuthManager();
 });
