@@ -7,6 +7,7 @@ class ServerAuthManager {
     constructor() {
         this.currentUser = null;
         this.sessionToken = null;
+        this.isAnonymous = false;  // New flag to track anonymous status
         this.apiBase = window.location.origin + '/api';
         this.initializeAuth();
     }
@@ -20,7 +21,11 @@ class ServerAuthManager {
             try {
                 const isValid = await this.validateSession(savedToken);
                 if (isValid) {
-                    console.log(`✅ Restored session for user: ${this.currentUser}`);
+                    if (this.isAnonymous) {
+                        console.log(`✅ Restored anonymous session`);
+                    } else {
+                        console.log(`✅ Restored session for user: ${this.currentUser}`);
+                    }
                     this.showApp();
                     return;
                 }
@@ -30,7 +35,33 @@ class ServerAuthManager {
             }
         }
         
-        // Show login screen if no valid session
+        try {
+            // Request a new anonymous session
+            const response = await fetch(`${this.apiBase}/validate`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({}) // Empty body to request anonymous session
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                if (data.valid && data.anonymous && data.token) {
+                    console.log('✅ Created anonymous session');
+                    this.sessionToken = data.token;
+                    localStorage.setItem('flashcard-session-token', data.token);
+                    this.isAnonymous = true;
+                    this.userProgress = data.progress;
+                    this.showApp();
+                    return;
+                }
+            }
+        } catch (error) {
+            console.error('Failed to create anonymous session:', error);
+        }
+        
+        // Show login screen if everything else fails
         this.showLoginScreen();
     }
 
@@ -49,7 +80,14 @@ class ServerAuthManager {
                 const data = await response.json();
                 if (data.valid) {
                     this.sessionToken = token;
-                    this.currentUser = data.username;
+                    this.isAnonymous = data.anonymous || false;
+                    
+                    if (!this.isAnonymous) {
+                        this.currentUser = data.username;
+                    } else {
+                        this.currentUser = null;
+                    }
+                    
                     this.userProgress = data.progress;
                     return true;
                 }
@@ -112,15 +150,23 @@ class ServerAuthManager {
 
     async login(username, password) {
         try {
+            const loginData = {
+                username: username.trim(),
+                password: password
+            };
+            
+            // If we have an anonymous session, include the token
+            if (this.isAnonymous && this.sessionToken) {
+                loginData.anonymousToken = this.sessionToken;
+                console.log('🔄 Including anonymous token in login request to transfer progress');
+            }
+            
             const response = await fetch(`${this.apiBase}/login`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({
-                    username: username.trim(),
-                    password: password
-                })
+                body: JSON.stringify(loginData)
             });
 
             const data = await response.json();
@@ -129,6 +175,7 @@ class ServerAuthManager {
                 this.sessionToken = data.token;
                 this.currentUser = data.user.username;
                 this.userProgress = data.user.progress;
+                this.isAnonymous = false; // User is now logged in
                 
                 // Save session token
                 localStorage.setItem('flashcard-session-token', this.sessionToken);
@@ -306,14 +353,46 @@ class ServerAuthManager {
         const app = document.getElementById('app');
         if (app) app.style.display = 'block';
         
-        // Show user info
-        this.updateUserInfo();
-        
-        // Show logout button
+        // Show login prompt for anonymous users
+        const loginPrompt = document.getElementById('loginPrompt');
+        const fallbackLoginBtn = document.getElementById('fallbackLoginBtn');
         const logoutBtn = document.getElementById('logoutBtn');
-        if (logoutBtn) {
-            logoutBtn.style.display = 'block';
-            logoutBtn.onclick = () => this.logout();
+        
+        if (this.isAnonymous) {
+            // Show login prompt for anonymous users
+            if (loginPrompt) {
+                loginPrompt.style.display = 'block';
+                const promptLoginBtn = document.getElementById('promptLoginBtn');
+                if (promptLoginBtn) {
+                    promptLoginBtn.onclick = () => this.showLoginScreen();
+                }
+            }
+            
+            // Show fallback login button
+            if (fallbackLoginBtn) {
+                fallbackLoginBtn.style.display = 'block';
+                fallbackLoginBtn.onclick = () => this.showLoginScreen();
+            }
+            
+            // Hide logout button for anonymous users
+            if (logoutBtn) logoutBtn.style.display = 'none';
+            
+            // Hide user info for anonymous users
+            const userInfo = document.getElementById('userInfo');
+            if (userInfo) userInfo.style.display = 'none';
+        } else {
+            // Show user info for logged in users
+            this.updateUserInfo();
+            
+            // Hide login prompts for logged in users
+            if (loginPrompt) loginPrompt.style.display = 'none';
+            if (fallbackLoginBtn) fallbackLoginBtn.style.display = 'none';
+            
+            // Show logout button for logged in users
+            if (logoutBtn) {
+                logoutBtn.style.display = 'block';
+                logoutBtn.onclick = () => this.logout();
+            }
         }
         
         // Trigger app initialization if available

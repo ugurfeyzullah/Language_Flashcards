@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Deployment script for PythonAnywhere
-Run this script after uploading files to initialize the application
+Run this script after uploading files to initialize the database
 """
 
 import os
@@ -14,13 +14,11 @@ def setup_production():
     
     try:
         # Import after setting up path
-        from app import app
+        from server import init_db, app
         
-        print("📚 Initializing file-based system...")
-        # Create users directory if it doesn't exist
-        users_dir = Path("users")
-        users_dir.mkdir(exist_ok=True)
-        print("✅ File-based user system initialized successfully!")
+        print("📚 Initializing database...")
+        init_db()
+        print("✅ Database initialized successfully!")
         
         print("🔧 Checking configuration...")
         

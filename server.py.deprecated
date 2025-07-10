@@ -1,6 +1,0 @@
-# This file has been deprecated in favor of app.py with file-based user management.
-# Please use app.py instead.
-print("⚠️  server.py is deprecated. Please use app.py for file-based user management instead.")
-
-# Import everything from app.py to maintain backward compatibility
-from app import *

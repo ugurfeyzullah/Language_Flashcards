@@ -19,6 +19,7 @@ class UserManager:
         self.users_dir = Path(users_dir)
         self.users_dir.mkdir(exist_ok=True)
         self.sessions = {}  # In-memory session storage
+        self.anonymous_sessions = {}  # Store anonymous user sessions
         
     def _hash_password(self, password: str, salt: str = None) -> tuple:
         """Hash a password with salt."""
@@ -222,12 +223,69 @@ class UserManager:
         
         user_data["progress"]["last_session_date"] = today.isoformat()
     
+    def create_anonymous_session(self) -> Dict:
+        """Create an anonymous session for users not logged in."""
+        try:
+            # Generate anonymous session token
+            session_token = "anon_" + secrets.token_urlsafe(32)
+            
+            # Create default progress structure for anonymous users
+            anonymous_progress = {
+                "known_cards": [],
+                "learning_cards": [],
+                "total_sessions": 1,
+                "total_cards_learned": 0,
+                "streak_days": 1,
+                "last_session_date": datetime.now().date().isoformat(),
+                "preferences": {
+                    "theme": "dark",
+                    "auto_play_audio": True,
+                    "show_pronunciation": True,
+                    "cards_per_session": 20,
+                    "last_card_index": 0
+                }
+            }
+            
+            # Store the anonymous session
+            self.anonymous_sessions[session_token] = {
+                "created_at": datetime.now().isoformat(),
+                "expires_at": (datetime.now() + timedelta(days=7)).isoformat(),  # Anonymous sessions last 7 days
+                "progress": anonymous_progress
+            }
+            
+            print(f"✅ Anonymous session created: {session_token[:15]}...")
+            return {
+                "success": True,
+                "token": session_token,
+                "isAnonymous": True,
+                "progress": anonymous_progress
+            }
+        except Exception as e:
+            print(f"❌ Anonymous session creation error: {e}")
+            return {"success": False, "error": str(e)}
+    
     def validate_session(self, session_token: str) -> Optional[str]:
         """Validate session token and return username if valid."""
         print(f"🔍 [SESSION DEBUG] Validating token: {session_token[:20]}...")
         print(f"🔍 [SESSION DEBUG] Active sessions: {len(self.sessions)}")
         print(f"🔍 [SESSION DEBUG] Session tokens: {[token[:20] + '...' for token in self.sessions.keys()]}")
         
+        # Check if this is an anonymous session
+        if session_token.startswith("anon_") and session_token in self.anonymous_sessions:
+            print(f"🔍 [SESSION DEBUG] Anonymous session found")
+            anon_session = self.anonymous_sessions[session_token]
+            
+            # Check if anonymous session is expired
+            expires_at = datetime.fromisoformat(anon_session["expires_at"])
+            if datetime.now() > expires_at:
+                print(f"❌ [SESSION DEBUG] Anonymous session expired, removing")
+                del self.anonymous_sessions[session_token]
+                return None
+                
+            print(f"✅ [SESSION DEBUG] Valid anonymous session")
+            return None  # Return None for anonymous users, but the session is valid
+        
+        # Regular user session validation
         if session_token not in self.sessions:
             print(f"❌ [SESSION DEBUG] Token not found in active sessions")
             return None
@@ -248,6 +306,13 @@ class UserManager:
         username = session["username"]
         print(f"✅ [SESSION DEBUG] Valid session for user: {username}")
         return username
+    
+    def get_anonymous_progress(self, session_token: str) -> Optional[Dict]:
+        """Get progress for an anonymous user."""
+        if not session_token.startswith("anon_") or session_token not in self.anonymous_sessions:
+            return None
+            
+        return self.anonymous_sessions[session_token].get("progress", {})
     
     def logout_user(self, session_token: str) -> Dict:
         """Logout a user by invalidating their session."""
@@ -400,6 +465,62 @@ class UserManager:
                 print(f"❌ Error reading user file {user_file}: {e}")
         
         return sorted(users, key=lambda x: x["created_at"], reverse=True)
+    
+    def transfer_anonymous_progress(self, anonymous_token: str, username: str) -> bool:
+        """Transfer anonymous progress to a user account."""
+        print(f"🔍 [DEBUG] Starting transfer of anonymous progress to user: {username}")
+        
+        # Check if anonymous session exists
+        if not anonymous_token.startswith("anon_") or anonymous_token not in self.anonymous_sessions:
+            print(f"❌ [DEBUG] Invalid anonymous session token")
+            return False
+        
+        try:
+            # Get anonymous progress
+            anonymous_progress = self.anonymous_sessions[anonymous_token].get("progress", {})
+            print(f"🔍 [DEBUG] Anonymous progress retrieved:")
+            print(f"🔍 [DEBUG] - Known cards: {len(anonymous_progress.get('known_cards', []))}")
+            print(f"🔍 [DEBUG] - Learning cards: {len(anonymous_progress.get('learning_cards', []))}")
+            
+            # Get user progress
+            user_progress = self.get_user_progress(username)
+            if not user_progress:
+                print(f"❌ [DEBUG] User progress not found")
+                return False
+            
+            print(f"🔍 [DEBUG] Current user progress:")
+            print(f"🔍 [DEBUG] - Known cards: {len(user_progress.get('known_cards', []))}")
+            print(f"🔍 [DEBUG] - Learning cards: {len(user_progress.get('learning_cards', []))}")
+            
+            # Merge known and learning cards
+            user_progress["known_cards"] = list(set(user_progress.get("known_cards", []) + anonymous_progress.get("known_cards", [])))
+            user_progress["learning_cards"] = list(set(user_progress.get("learning_cards", []) + anonymous_progress.get("learning_cards", [])))
+            
+            # Merge preferences if they don't exist
+            user_prefs = user_progress.get("preferences", {})
+            anon_prefs = anonymous_progress.get("preferences", {})
+            
+            for key, value in anon_prefs.items():
+                if key not in user_prefs:
+                    user_prefs[key] = value
+            
+            user_progress["preferences"] = user_prefs
+            
+            # Save the merged progress
+            success = self.save_user_progress(username, user_progress)
+            
+            if success:
+                print(f"✅ [DEBUG] Anonymous progress transferred to user account")
+                # Delete anonymous session after transfer
+                del self.anonymous_sessions[anonymous_token]
+                return True
+            else:
+                print(f"❌ [DEBUG] Failed to save merged progress")
+                return False
+                
+        except Exception as e:
+            print(f"❌ Error transferring anonymous progress: {e}")
+            return False
 
 
 # Global instance
@@ -438,3 +559,32 @@ if __name__ == "__main__":
         # Test logout
         result = user_manager.logout_user(token)
         print("Logout:", result)
+    
+    # Test anonymous session
+    anon_result = user_manager.create_anonymous_session()
+    print("Anonymous session:", anon_result)
+    
+    if anon_result["success"]:
+        anon_token = anon_result["token"]
+        
+        # Test anonymous progress saving
+        anon_progress = {
+            "known_cards": ["anon_card_1"],
+            "learning_cards": ["anon_card_2"]
+        }
+        anon_success = user_manager.save_anonymous_progress(anon_token, anon_progress)
+        print(f"Anonymous progress saved: {anon_success}")
+        
+        # Test anonymous progress loading
+        loaded_anon_progress = user_manager.get_anonymous_progress(anon_token)
+        print("Loaded anonymous progress:", loaded_anon_progress)
+        
+        # Validate anonymous session
+        user_manager.validate_session(anon_token)
+        
+        # Wait and check anonymous session expiration
+        import time
+        print(f"⏳ Waiting for anonymous session to expire...")
+        time.sleep(2)
+        expired_username = user_manager.validate_session(anon_token)
+        print(f"Session validation after wait: {expired_username}")
