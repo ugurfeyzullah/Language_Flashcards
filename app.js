@@ -26,22 +26,25 @@
 
 class FlashCardApp {
     constructor() {
-        // Wait for auth manager to be ready
-        this.waitForAuth();
+        // Wait for progress manager to be ready
+        this.waitForProgressManager();
     }
 
-    waitForAuth() {
-        if (typeof authManager !== 'undefined') {
+    waitForProgressManager() {
+        if (typeof progressManager !== 'undefined') {
             this.initializeApp();
         } else {
-            setTimeout(() => this.waitForAuth(), 100);
+            setTimeout(() => this.waitForProgressManager(), 100);
         }
-    }    initializeApp() {
-        this.authManager = authManager;
-        this.loginPromptTimeout = null;
+    }
+
+    initializeApp() {
+        this.progressManager = progressManager;
         this.progressLoaded = false; // Flag to prevent saving before loading
           this.state = {
             cards: [],
+            filteredCards: [], // Add filtered cards array
+            selectedLevel: 'all', // Track selected level
             index: 0,
             knownIds: [],
             learningIds: [],
@@ -68,7 +71,17 @@ class FlashCardApp {
         this.isDragging = false;
         this.currentAudio = null;
         this.sessionStartTime = Date.now();
-    }    async loadCards() {
+    }    // Add shuffle function
+    shuffleArray(array) {
+        const shuffled = [...array];
+        for (let i = shuffled.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+        }
+        return shuffled;
+    }
+
+    async loadCards() {
         try {
             const response = await fetch('./flashcards.json');
             if (!response.ok) {
@@ -76,7 +89,11 @@ class FlashCardApp {
             }
             const cards = await response.json();
             
-            this.state.cards = cards;
+            // Shuffle the cards for random order
+            this.state.cards = this.shuffleArray(cards);
+            // Initialize filtered cards with all cards
+            this.state.filteredCards = [...this.state.cards];
+            
             console.log(`📚 [CARD LOAD] Loaded ${cards.length} flashcards from JSON`);
             console.log(`📚 [CARD LOAD] Card IDs: ${cards.map(c => c.id).join(', ')}`);
             
@@ -89,7 +106,9 @@ class FlashCardApp {
         } catch (error) {
             console.error('Error loading flashcards:', error);
             // Fallback to sample cards if loading fails
-            this.state.cards = this.generateSampleCards();
+            const sampleCards = this.generateSampleCards();
+            this.state.cards = this.shuffleArray(sampleCards);
+            this.state.filteredCards = [...this.state.cards];
             console.log('Using sample cards as fallback');
             
             this.initializeElements();
@@ -185,7 +204,8 @@ class FlashCardApp {
         ];
     }
 
-    initializeElements() {        this.elements = {
+    initializeElements() {
+        this.elements = {
             closeBtn: document.getElementById('closeBtn'),
             settingsBtn: document.getElementById('settingsBtn'),
             progressLabel: document.getElementById('progressLabel'),
@@ -210,7 +230,8 @@ class FlashCardApp {
             notes: document.getElementById('notes'),
             undoBtn: document.getElementById('undoBtn'),
             nextBtn: document.getElementById('nextBtn'),
-            themeToggle: document.getElementById('themeToggle')        };
+            themeToggle: document.getElementById('themeToggle'),
+            levelFilters: document.getElementById('levelFilters')        };
     }    showLoginPrompt() {
         const loginPrompt = document.getElementById('loginPrompt');
         if (loginPrompt && (!this.authManager || !this.authManager.getCurrentUser())) {
@@ -262,6 +283,21 @@ class FlashCardApp {
 
         // Theme toggle
         this.elements.themeToggle.addEventListener('click', this.toggleTheme.bind(this));
+
+        // Level filter buttons
+        if (this.elements.levelFilters) {
+            const levelButtons = this.elements.levelFilters.querySelectorAll('.level-btn');
+            levelButtons.forEach(button => {
+                button.addEventListener('click', () => {
+                    const level = button.getAttribute('data-level');
+                    this.filterCardsByLevel(level);
+                    
+                    // Update active button
+                    levelButtons.forEach(btn => btn.classList.remove('active'));
+                    button.classList.add('active');
+                });
+            });
+        }
 
         // Keyboard controls
         document.addEventListener('keydown', this.handleKeyDown.bind(this));
@@ -540,7 +576,29 @@ class FlashCardApp {
         setTimeout(() => {
             card.classList.remove(className);
         }, 50);
-    }    toggleFavourite() {
+    }    filterCardsByLevel(level) {
+        this.state.selectedLevel = level;
+        
+        // Reset index and history when changing levels
+        this.state.index = 0;
+        this.state.history = [];
+        this.state.isFlipped = false;
+        
+        if (level === 'all') {
+            // No filtering - show all cards
+            this.state.filteredCards = [...this.state.cards];
+        } else {
+            // Filter by level
+            this.state.filteredCards = this.state.cards.filter(card => card.level === level);
+        }
+        
+        console.log(`🔍 [LEVEL FILTER] Filtered to ${this.state.filteredCards.length} cards with level ${level}`);
+        
+        // Re-render with filtered cards
+        this.render();
+    }
+
+    toggleFavourite() {
         const currentCard = this.getCurrentCard();
         if (!currentCard) return;
 
@@ -551,6 +609,14 @@ class FlashCardApp {
         );
 
         this.state = { ...this.state, cards: newCards };
+        
+        // Update filtered cards as well
+        this.state.filteredCards = this.state.filteredCards.map(card => 
+            card.id === currentCard.id 
+                ? { ...card, isFavourite: !card.isFavourite }
+                : card
+        );
+        
         this.renderStarButtons();
         this.saveUserProgress();
     }
@@ -634,8 +700,8 @@ class FlashCardApp {
         }
         
         // Find the next card that hasn't been marked as known
-        while (this.state.index < this.state.cards.length) {
-            const nextCard = this.state.cards[this.state.index];
+        while (this.state.index < this.state.filteredCards.length) {
+            const nextCard = this.state.filteredCards[this.state.index];
             console.log('🔍 [CARD DEBUG] Checking card at index', this.state.index, ':', nextCard.id);
             
             // Skip known cards
@@ -685,7 +751,7 @@ class FlashCardApp {
         return [...unseenCards, ...reviewCards];
     }    getCardsForReview() {
         // Return cards that are marked as "still learning" for review
-        return this.state.cards.filter(card => 
+        return this.state.filteredCards.filter(card => 
             this.state.learningIds.includes(card.id)
         );
     }
@@ -716,7 +782,7 @@ class FlashCardApp {
         this.renderCard();
         this.renderControls();
     }    renderProgress() {
-        const totalCards = this.state.cards.length;
+        const totalCards = this.state.filteredCards.length;
         const currentCard = this.getCurrentCard();
         
         if (!currentCard) {
@@ -756,10 +822,10 @@ class FlashCardApp {
             cardContainer.classList.remove('review-card');
         }
 
-        // Front side
+        // Front side - show German word with example
         this.elements.primaryText.textContent = currentCard.front.primaryText;
-        this.elements.secondaryText.textContent = currentCard.front.secondaryText || '';
-        this.elements.secondaryText.style.display = currentCard.front.secondaryText ? 'block' : 'none';
+        this.elements.secondaryText.textContent = currentCard.back.example || currentCard.front.secondaryText || '';
+        this.elements.secondaryText.style.display = (currentCard.back.example || currentCard.front.secondaryText) ? 'block' : 'none';
 
         // Handle front image
         if (currentCard.front.imageUrl) {
@@ -776,10 +842,10 @@ class FlashCardApp {
             this.elements.cardImageContainer.style.display = 'none';
         }
 
-        // Back side
+        // Back side - show English translation and notes
         this.elements.translation.textContent = currentCard.back.translation;
-        this.elements.example.textContent = currentCard.back.example || '';
-        this.elements.example.style.display = currentCard.back.example ? 'block' : 'none';
+        this.elements.example.textContent = currentCard.front.secondaryText || '';
+        this.elements.example.style.display = currentCard.front.secondaryText ? 'block' : 'none';
         this.elements.notes.textContent = currentCard.back.notes || '';
         this.elements.notes.style.display = currentCard.back.notes ? 'block' : 'none';
 
@@ -796,7 +862,9 @@ class FlashCardApp {
             };
         } else {
             this.elements.cardImageContainerBack.style.display = 'none';
-        }        this.renderStarButtons();
+        }
+
+        this.renderStarButtons();
         this.renderCardFlip();
         
         // Auto-play audio when a new card is shown
@@ -861,16 +929,8 @@ class FlashCardApp {
         // This method is now handled by loadUserProgress
         this.loadUserProgress();
     }    async saveUserProgress() {
-        console.log('🔍 [CLIENT DEBUG] saveUserProgress called, progressLoaded:', this.progressLoaded);
-        
         if (!this.progressLoaded) {
-            console.log('🔍 [CLIENT DEBUG] Progress not yet loaded, skipping save to prevent overwrite');
-            return;
-        }
-        
-        if (!this.authManager || !this.authManager.getCurrentUser()) {
-            // Show login prompt for anonymous users
-            this.showLoginPrompt();
+            console.log('Progress not yet loaded, skipping save to prevent overwrite');
             return;
         }
 
@@ -879,26 +939,21 @@ class FlashCardApp {
             
             // Get favorite cards
             const favourites = this.state.cards.filter(card => card.isFavourite).map(card => card.id);
-              const progressData = {
-                known_cards: [...this.state.knownIds],
-                learning_cards: [...this.state.learningIds],
+            
+            const progressData = {
+                knownIds: [...this.state.knownIds],
+                learningIds: [...this.state.learningIds],
                 favourites: favourites,
                 preferences: {
                     theme: this.state.theme,
-                    last_card_index: this.state.index,
-                    cards_since_last_review: this.state.cardsSinceLastReview,
-                    next_review_interval: this.state.nextReviewInterval
+                    lastCardIndex: this.state.index,
+                    cardsSinceLastReview: this.state.cardsSinceLastReview,
+                    nextReviewInterval: this.state.nextReviewInterval
                 },
-                session_time: sessionTime
+                sessionTime: sessionTime
             };
 
-            console.log('🔍 [CLIENT DEBUG] Saving progress:', {
-                known_cards: progressData.known_cards.length,
-                learning_cards: progressData.learning_cards.length,
-                favourites: progressData.favourites.length
-            });
-
-            await this.authManager.saveProgress(progressData);
+            this.progressManager.saveProgress(progressData);
             
             // Update last saved state
             this.lastSavedProgress = {
@@ -909,45 +964,26 @@ class FlashCardApp {
             
             this.sessionStartTime = Date.now(); // Reset session timer
             
-            console.log('✅ Progress saved to server');
+            console.log('✅ Progress saved locally');
         } catch (error) {
             console.error('❌ Failed to save progress:', error);
         }
     }
 
-    async loadUserProgress() {
-        console.log('🔍 [CLIENT DEBUG] Starting loadUserProgress...');
-        if (!this.authManager || !this.authManager.getCurrentUser()) {
-            console.log('🔍 [CLIENT DEBUG] No authenticated user, skipping progress load');
-            this.progressLoaded = true;
-            return;
-        }
-
+    loadProgressFromStorage() {
         try {
-            console.log('🔍 [CLIENT DEBUG] Loading progress from server...');
-            const progress = await this.authManager.loadProgress();
+            const progress = this.progressManager.loadProgress();
             if (progress) {
-                console.log('🔍 [CLIENT DEBUG] Progress loaded from server:', progress);
-                console.log('🔍 [CLIENT DEBUG] Known cards from server:', progress.known_cards);
-                console.log('🔍 [CLIENT DEBUG] Learning cards from server:', progress.learning_cards);
-                console.log('🔍 [CLIENT DEBUG] Current state before update:');
-                console.log('🔍 [CLIENT DEBUG] - knownIds:', this.state.knownIds);
-                console.log('🔍 [CLIENT DEBUG] - learningIds:', this.state.learningIds);
-                console.log('🔍 [CLIENT DEBUG] - current index:', this.state.index);
+                console.log('Loading progress from storage:', progress);
                 
                 this.state = {
                     ...this.state,
-                    knownIds: progress.known_cards || [],
-                    learningIds: progress.learning_cards || [],
+                    knownIds: progress.knownIds || [],
+                    learningIds: progress.learningIds || [],
                     theme: progress.preferences?.theme || 'dark',
-                    cardsSinceLastReview: progress.preferences?.cards_since_last_review || 0,
-                    nextReviewInterval: progress.preferences?.next_review_interval || this.getRandomReviewInterval()
+                    cardsSinceLastReview: progress.preferences?.cardsSinceLastReview || 0,
+                    nextReviewInterval: progress.preferences?.nextReviewInterval || this.getRandomReviewInterval()
                 };
-
-                console.log('🔍 [CLIENT DEBUG] State after update:');
-                console.log('🔍 [CLIENT DEBUG] - knownIds:', this.state.knownIds);
-                console.log('🔍 [CLIENT DEBUG] - learningIds:', this.state.learningIds);
-                console.log('🔍 [CLIENT DEBUG] - current index:', this.state.index);
 
                 // Restore favorites
                 if (progress.favourites) {
@@ -955,59 +991,35 @@ class FlashCardApp {
                         ...card,
                         isFavourite: progress.favourites.includes(card.id)
                     }));
+                    
+                    this.state.filteredCards = this.state.filteredCards.map(card => ({
+                        ...card,
+                        isFavourite: progress.favourites.includes(card.id)
+                    }));
                 }
 
                 // Restore last card index if available
-                if (progress.preferences?.last_card_index !== undefined && progress.preferences.last_card_index < this.state.cards.length) {
-                    console.log('🔍 [CLIENT DEBUG] Restoring last card index:', progress.preferences.last_card_index);
-                    this.state.index = progress.preferences.last_card_index;
+                if (progress.preferences?.lastCardIndex !== undefined) {
+                    this.state.index = progress.preferences.lastCardIndex;
                 }
                 
                 // Reset index to skip known cards
                 this.resetCardIndexToNextUnknown();
                 
-                // Initialize last saved progress
-                this.lastSavedProgress = {
-                    knownIds: [...(progress.known_cards || [])],
-                    learningIds: [...(progress.learning_cards || [])],
-                    favourites: [...(progress.favourites || [])]
-                };
-                
-                console.log('✅ Progress loaded from server');
+                console.log('✅ Progress loaded from storage');
                 console.log('Known cards:', this.state.knownIds.length);
                 console.log('Learning cards:', this.state.learningIds.length);
                 console.log('Favorite cards:', progress.favourites?.length || 0);
-                console.log('🔍 [CLIENT DEBUG] Current card after loading:', this.getCurrentCard()?.id);
-            } else {
-                console.log('🔍 [CLIENT DEBUG] No progress data found on server');
-                // Initialize empty progress for new users
-                this.lastSavedProgress = {
-                    knownIds: [],
-                    learningIds: [],
-                    favourites: []
-                };
             }
         } catch (error) {
             console.error('❌ Failed to load progress:', error);
-            // Initialize empty progress on error
-            this.lastSavedProgress = {
-                knownIds: [],
-                learningIds: [],
-                favourites: []
-            };
         } finally {
             this.progressLoaded = true;
-            console.log('🔍 [CLIENT DEBUG] Progress loading complete, progressLoaded flag set to true');
-            
-            // Force the card index to move past known cards
-            console.log('🔍 [CLIENT DEBUG] Checking if current card is known...');
-            const currentCard = this.getCurrentCard();
-            console.log('🔍 [CLIENT DEBUG] Current card after progress load:', currentCard?.id || 'null');
-            
-            // Re-render the UI to reflect loaded progress
-            this.render();
-            this.authManager.updateUserInfo();
         }
+    }
+
+    async loadUserProgress() {
+        this.loadProgressFromStorage();
     }
 
     resetCardIndexToNextUnknown() {

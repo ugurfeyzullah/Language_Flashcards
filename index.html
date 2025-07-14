@@ -1,26 +1,19 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>    <meta charset="UTF-8">
+<head>
+    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Language Flash Cards</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎴</text></svg>">
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <!-- User Info Display -->
-    <div class="user-info" id="userInfo" style="display: none;"></div>    <!-- Logout Button -->
-    <button class="logout-btn" id="logoutBtn" style="display: none;">Sign Out</button>
-    
-    <!-- Login Prompt for Anonymous Users -->
-    <div class="login-prompt" id="loginPrompt" style="display: none;">
-        <div class="prompt-content">
-            <span class="prompt-text">💾 Log in to save your progress</span>
-            <button class="prompt-login-btn" id="promptLoginBtn">Log In</button>
-        </div>
+    <!-- Progress Controls -->
+    <div class="progress-controls" id="progressControls">
+        <button class="progress-btn export-btn" id="exportProgressBtn">📤 Export Progress</button>
+        <button class="progress-btn import-btn" id="importProgressBtn">📥 Import Progress</button>
+        <input type="file" id="importFileInput" accept=".json" style="display: none;">
     </div>
-
-    <!-- Fallback Login Button (always visible for anonymous users) -->
-    <button class="fallback-login-btn" id="fallbackLoginBtn" style="display: none;">👤</button>
     
     <div id="app">
         <!-- Top Bar -->
@@ -42,10 +35,19 @@
             </div>
         </div>
 
+        <!-- Level Filters -->
+        <div class="level-filters" id="levelFilters">
+            <button class="level-btn active" data-level="all">All</button>
+            <button class="level-btn" data-level="A1">A1</button>
+            <button class="level-btn" data-level="A2">A2</button>
+            <button class="level-btn" data-level="B1">B1</button>
+        </div>
+
         <!-- Card Container -->
         <div class="card-container" id="cardContainer">
             <div class="flashcard" id="flashcard">
-                <div class="card-inner">                    <!-- Front Side -->
+                <div class="card-inner">
+                    <!-- Front Side -->
                     <div class="card-front">
                         <button class="card-icon audio-btn" id="audioBtn">🔊</button>
                         <button class="card-icon star-btn" id="starBtn">☆</button>
@@ -57,7 +59,7 @@
                             <div class="secondary-text" id="secondaryText"></div>
                         </div>
                     </div>
-                      <!-- Back Side -->
+                    <!-- Back Side -->
                     <div class="card-back">
                         <button class="card-icon audio-btn" id="audioBtnBack">🔊</button>
                         <button class="card-icon star-btn" id="starBtnBack">☆</button>
@@ -78,20 +80,30 @@
         <div class="bottom-controls">
             <button class="control-btn undo-btn" id="undoBtn">↺</button>
             <button class="control-btn next-btn" id="nextBtn">▶️</button>
-        </div>        <!-- Theme Toggle -->
+        </div>
+
+        <!-- Theme Toggle -->
         <button class="theme-toggle" id="themeToggle">🌙</button>
         
         <!-- Account Settings Modal -->
         <div class="account-settings" id="accountSettings">
             <div class="settings-modal">
                 <div class="settings-header">
-                    <h3>Account Settings</h3>
+                    <h3>Settings</h3>
                     <button class="close-settings" id="closeSettings">✕</button>
                 </div>
-                  <div class="settings-item">
+                
+                <div class="settings-item">
                     <div class="settings-label">Export Progress</div>
                     <div class="settings-description">Download your learning progress as a backup file</div>
                     <button class="export-btn" id="exportBtn">Export Data</button>
+                </div>
+                
+                <div class="settings-item">
+                    <div class="settings-label">Import Progress</div>
+                    <div class="settings-description">Upload a previously exported progress file</div>
+                    <button class="import-btn" id="importBtn">Import Data</button>
+                    <input type="file" id="importFileInputModal" accept=".json" style="display: none;">
                 </div>
                 
                 <div class="settings-item">
@@ -101,9 +113,9 @@
                 </div>
                 
                 <div class="settings-item">
-                    <div class="settings-label">Delete Account</div>
-                    <div class="settings-description">Permanently delete your account and all progress</div>
-                    <button class="danger-btn" id="deleteAccountBtn">Delete Account</button>
+                    <div class="settings-label">Clear All Progress</div>
+                    <div class="settings-description">Clear all progress and start completely fresh</div>
+                    <button class="danger-btn" id="clearProgressBtn">Clear Progress</button>
                 </div>
             </div>
         </div>
@@ -112,7 +124,7 @@
         <div class="version-info">v2.0.0</div>
     </div>
 
-    <script src="server_auth.js?v=2"></script>
-    <script src="app.js?v=2"></script>
+    <script src="progress_manager.js?v=3"></script>
+    <script src="app.js?v=3"></script>
 </body>
 </html>
